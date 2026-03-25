@@ -1,4 +1,4 @@
-# domino_apunte_score
+# Domino Apuntes Score
 
 A new Flutter project.
 

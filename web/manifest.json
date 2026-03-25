@@ -1,6 +1,6 @@
 {
-    "name": "domino_apunte_score",
-    "short_name": "domino_apunte_score",
+    "name": "Domino Apuntes Score",
+    "short_name": "Domino Apuntes Score",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
