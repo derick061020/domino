@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_model.dart';
 import '../services/game_service.dart';
-import '../widgets/country_background_widget.dart';
+import 'settings_screen.dart';
+import 'history_screen.dart';
 
 class GameScreen extends StatefulWidget {
   final DominoGame game;
@@ -17,11 +18,28 @@ class _GameScreenState extends State<GameScreen> {
   final GameService _gameService = GameService();
   late DominoGame _currentGame;
   bool _isLoading = false;
+  String _selectedBackground = 'default';
+  int _maxPoints = 200; // Puntos para ganar
+  int _playerCount = 2; // Número de jugadores
 
   @override
   void initState() {
     super.initState();
     _currentGame = widget.game;
+    _loadBackground();
+  }
+
+  Future<void> _loadBackground() async {
+    final prefs = await SharedPreferences.getInstance();
+    final background = prefs.getString('background') ?? 'default';
+    final maxPoints = prefs.getInt('maxPoints') ?? 200;
+    final playerCount = prefs.getInt('playerCount') ?? 2;
+    print('Loading background: $background'); // Debug
+    setState(() {
+      _selectedBackground = background;
+      _maxPoints = maxPoints;
+      _playerCount = playerCount;
+    });
   }
 
   Future<void> _saveGame() async {
@@ -38,22 +56,943 @@ class _GameScreenState extends State<GameScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D44),
         title: Text(
-          'Agregar puntos - ${player == 1 ? _currentGame.player1Name : _currentGame.player2Name}',
-          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold),
+          'Agregar puntos - ${player == 1 ? 'Home' : player == 2 ? 'Jugador 1' : player == 3 ? 'Jugador 2' : 'Jugador 3'}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Poppins',
+          ),
         ),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            labelText: 'Puntos',
-            labelStyle: TextStyle(color: Color(0xFFE53935)),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFE53935)),
+        content: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE53935).withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  final currentValue = int.tryParse(controller.text) ?? _maxPoints;
+                  controller.text = (currentValue - 10 >= 50 ? currentValue - 10 : 50).toString();
+                },
+                icon: const Icon(Icons.remove, color: Color(0xFFE53935)),
+                iconSize: 20,
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: '200',
+                    hintStyle: TextStyle(
+                      color: Colors.white24,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  final currentValue = int.tryParse(controller.text) ?? _maxPoints;
+                  controller.text = (currentValue + 10).toString();
+                },
+                icon: const Icon(Icons.add, color: Color(0xFFE53935)),
+                iconSize: 20,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar', style: TextStyle(color: Color(0xFFE53935))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final points = int.tryParse(controller.text);
+              if (points != null && points > 0) {
+                setState(() {
+                  if (player == 1) {
+                    _currentGame = _currentGame.copyWith(
+                      player1Rounds: [..._currentGame.player1Rounds, points],
+                      lastPlayed: DateTime.now(),
+                    );
+                  } else if (player == 2) {
+                    _currentGame = _currentGame.copyWith(
+                      player2Rounds: [..._currentGame.player2Rounds, points],
+                      lastPlayed: DateTime.now(),
+                    );
+                  }
+                  // TODO: Agregar soporte para jugadores 3 y 4
+                });
+                await _saveGame();
+                Navigator.pop(context);
+                
+                // Verificar condición de victoria después de cerrar el popup
+                _checkWinCondition();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              elevation: 4,
+              shadowColor: const Color(0xFFE53935).withOpacity(0.3),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFE53935)),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () async {
+                  final points = int.tryParse(controller.text);
+                  if (points != null && points > 0) {
+                    setState(() {
+                      if (player == 1) {
+                        _currentGame = _currentGame.copyWith(
+                          player1Rounds: [..._currentGame.player1Rounds, points],
+                          lastPlayed: DateTime.now(),
+                        );
+                      } else if (player == 2) {
+                        _currentGame = _currentGame.copyWith(
+                          player2Rounds: [..._currentGame.player2Rounds, points],
+                          lastPlayed: DateTime.now(),
+                        );
+                      }
+                      // TODO: Agregar soporte para jugadores 3 y 4
+                    });
+                    await _saveGame();
+                    Navigator.pop(context);
+                    
+                    // Verificar condición de victoria después de cerrar el popup
+                    _checkWinCondition();
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                splashColor: Colors.white.withOpacity(0.3),
+                highlightColor: Colors.white.withOpacity(0.2),
+                child: const Text(
+                  'Agregar',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
             ),
+          ),
+        ],
+      ),
+    ).then((_) {
+      // Se ejecuta cuando el popup se cierra por cualquier motivo
+      _checkWinCondition();
+    });
+  }
+
+  void _checkWinCondition() {
+    if (_currentGame.player1Score >= _maxPoints || _currentGame.player2Score >= _maxPoints) {
+      // Marcar la partida como completada inmediatamente
+      setState(() {
+        _currentGame = _currentGame.copyWith(isCompleted: true);
+      });
+      _saveGame();
+      _showGameFinishedDialog();
+    }
+  }
+
+  void _showGameFinishedDialog() {
+    final winner = _currentGame.player1Score >= _maxPoints ? 'Home' : _currentGame.player2Name;
+    
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D44),
+        title: const Text(
+          '🎉 ¡PARTIDA TERMINADA! 🎉',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE53935).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    '¡$winner ha ganado!',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFE53935),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Alcanzó $_maxPoints puntos',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Puntuación final:',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Home: ${_currentGame.player1Score} pts\n${_currentGame.player2Name}: ${_currentGame.player2Score} pts',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFE53935),
+                fontSize: 16,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => _resetAndStartNewGame(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              elevation: 4,
+              shadowColor: const Color(0xFFE53935).withOpacity(0.3),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _resetAndStartNewGame(),
+                borderRadius: BorderRadius.circular(8),
+                splashColor: Colors.white.withOpacity(0.3),
+                highlightColor: Colors.white.withOpacity(0.2),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  child: const Text(
+                    'REINICIAR',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ).then((_) {
+      // Se ejecuta cuando el popup de victoria se cierra por cualquier motivo
+      _saveAndResetGame();
+    });
+  }
+
+  void _saveAndResetGame() {
+    // La partida ya está marcada como completada en _checkWinCondition
+    // Solo creamos la nueva partida y reemplazamos la pantalla
+    final newGame = DominoGame(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: 'Partida Rápida',
+      createdAt: DateTime.now(),
+      player1Rounds: [],
+      player2Rounds: [],
+      player1Name: 'Home',
+      player2Name: 'Jugador 1',
+    );
+
+    // Reemplazar la pantalla actual con la nueva partida
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(game: newGame),
+      ),
+    );
+  }
+
+  void _resetAndStartNewGame() {
+    // Guardar la partida actual antes de reiniciar
+    _saveGame().then((_) {
+      // Crear nueva partida
+      final newGame = DominoGame(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: 'Partida Rápida',
+        createdAt: DateTime.now(),
+        player1Rounds: [],
+        player2Rounds: [],
+        player1Name: 'Home',
+        player2Name: 'Jugador 1',
+      );
+
+      // Reemplazar la pantalla actual con la nueva partida
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => GameScreen(game: newGame),
+        ),
+      );
+    });
+  }
+
+  void _showMaxPointsDialog() {
+    final controller = TextEditingController(text: _maxPoints.toString());
+    
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D44),
+        title: const Text(
+          'Puntos para ganar',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        content: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE53935).withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  final currentValue = int.tryParse(controller.text) ?? _maxPoints;
+                  controller.text = (currentValue - 10 >= 50 ? currentValue - 10 : 50).toString();
+                },
+                icon: const Icon(Icons.remove, color: Color(0xFFE53935)),
+                iconSize: 20,
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: '200',
+                    hintStyle: TextStyle(
+                      color: Colors.white24,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  final currentValue = int.tryParse(controller.text) ?? _maxPoints;
+                  controller.text = (currentValue + 10).toString();
+                },
+                icon: const Icon(Icons.add, color: Color(0xFFE53935)),
+                iconSize: 20,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar', style: TextStyle(color: Color(0xFFE53935))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final points = int.tryParse(controller.text);
+              if (points != null && points > 0) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setInt('maxPoints', points);
+                setState(() {
+                  _maxPoints = points;
+                });
+                _checkWinCondition();
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              elevation: 4,
+              shadowColor: const Color(0xFFE53935).withOpacity(0.3),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () async {
+                  final points = int.tryParse(controller.text);
+                  if (points != null && points > 0) {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setInt('maxPoints', points);
+                    setState(() {
+                      _maxPoints = points;
+                    });
+                    _checkWinCondition();
+                    Navigator.pop(context);
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                splashColor: Colors.white.withOpacity(0.3),
+                highlightColor: Colors.white.withOpacity(0.2),
+                child: const Text(
+                  'Guardar',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPlayerCountDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D44),
+        title: const Text(
+          'Número de jugadores',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [2, 3, 4].map((count) {
+            return RadioListTile<int>(
+              value: count,
+              groupValue: _playerCount,
+              onChanged: (value) async {
+                if (value != null) {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setInt('playerCount', value);
+                  setState(() {
+                    _playerCount = value;
+                  });
+                  Navigator.pop(context);
+                  // Reiniciar partida con nuevo número de jugadores
+                  _restartGameWithNewPlayerCount();
+                }
+              },
+              title: Text(
+                '$count jugadores',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              activeColor: const Color(0xFFE53935),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _restartGameWithNewPlayerCount() {
+    // Crear nueva partida con el número de jugadores actualizado
+    final newGame = DominoGame(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: 'Partida Rápida',
+      createdAt: DateTime.now(),
+      player1Rounds: [],
+      player2Rounds: [],
+      player1Name: 'Home',
+      player2Name: 'Jugador 1',
+    );
+
+    // Reemplazar la pantalla actual con la nueva partida
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(game: newGame),
+      ),
+    );
+  }
+
+  Widget _buildTwoPlayerLayout() {
+    return Column(
+      children: [
+        // Panel de configuración (discreto)
+        _buildConfigPanel(),
+        // Layout horizontal para 2 jugadores
+        Expanded(
+          child: Row(
+            children: [
+              // Jugador 1
+              Expanded(
+                child: _buildPlayerSection(1, _currentGame.player1Name, _currentGame.player1Score),
+              ),
+              // Separador
+              Container(
+                width: 2,
+                color: const Color(0xFFE53935).withOpacity(0.3),
+              ),
+              // Jugador 2
+              Expanded(
+                child: _buildPlayerSection(2, _currentGame.player2Name, _currentGame.player2Score),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMultiPlayerLayout() {
+    return Column(
+      children: [
+        // Panel de configuración (discreto)
+        _buildConfigPanel(),
+        // Grid 2x2 para 3-4 jugadores
+        Expanded(
+          child: Column(
+            children: [
+              // Primera fila
+              Expanded(
+                child: Row(
+                  children: [
+                    // Jugador 1
+                    Expanded(
+                      child: _buildPlayerSection(1, _currentGame.player1Name, _currentGame.player1Score),
+                    ),
+                    // Separador
+                    Container(
+                      width: 2,
+                      color: const Color(0xFFE53935).withOpacity(0.3),
+                    ),
+                    // Jugador 2
+                    Expanded(
+                      child: _buildPlayerSection(2, _currentGame.player2Name, _currentGame.player2Score),
+                    ),
+                  ],
+                ),
+              ),
+              // Separador horizontal
+              Container(
+                height: 2,
+                color: const Color(0xFFE53935).withOpacity(0.3),
+              ),
+              // Segunda fila
+              Expanded(
+                child: Row(
+                  children: [
+                    // Jugador 3
+                    if (_playerCount >= 3)
+                      Expanded(
+                        child: _buildPlayerSection(3, 'Jugador 2', 0),
+                      ),
+                    // Separador
+                    if (_playerCount >= 3)
+                      Container(
+                        width: 2,
+                        color: const Color(0xFFE53935).withOpacity(0.3),
+                      ),
+                    // Jugador 4 o espacio vacío
+                    if (_playerCount >= 4)
+                      Expanded(
+                        child: _buildPlayerSection(4, 'Jugador 3', 0),
+                      )
+                    else if (_playerCount == 3)
+                      Expanded(
+                        child: Container(), // Espacio vacío para centrar
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConfigPanel() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          // Puntos para ganar (botón más grande)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _showMaxPointsDialog,
+              borderRadius: BorderRadius.circular(8),
+              splashColor: Colors.white.withOpacity(0.3),
+              highlightColor: const Color(0xFFE53935).withOpacity(0.2),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFE53935).withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.flag,
+                      color: const Color(0xFFE53935),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$_maxPoints pts',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Container(
+            height: 30,
+            width: 2,
+            color: Colors.white.withOpacity(0.1),
+          ),
+          // Número de jugadores (botón más grande)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _showPlayerCountDialog,
+              borderRadius: BorderRadius.circular(8),
+              splashColor: Colors.white.withOpacity(0.3),
+              highlightColor: const Color(0xFFE53935).withOpacity(0.2),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFE53935).withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.people,
+                      color: const Color(0xFFE53935),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$_playerCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayerSection(int playerNumber, String playerName, int score) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          // Nombre del jugador (más pequeño)
+          Text(
+            playerName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Puntuación (más pequeña)
+          Text(
+            '$score',
+            style: const TextStyle(
+              color: Color(0xFFE53935),
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          Text(
+            'pts',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 12,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Botón de agregar puntos (más pequeño)
+          GestureDetector(
+            onTap: () => _showAddPointsDialog(playerNumber),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _showAddPointsDialog(playerNumber),
+                borderRadius: BorderRadius.circular(8),
+                splashColor: Colors.white.withOpacity(0.3),
+                highlightColor: const Color(0xFFE53935).withOpacity(0.5),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE53935),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        'Agregar',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Historial de rondas del jugador (con scroll)
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Historial',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 10,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: playerNumber == 1 
+                          ? _currentGame.player1Rounds.length
+                          : playerNumber == 2
+                              ? _currentGame.player2Rounds.length
+                              : 0, // TODO: Implementar para jugadores 3-4
+                      itemBuilder: (context, index) {
+                        final points = playerNumber == 1
+                            ? _currentGame.player1Rounds[index]
+                            : playerNumber == 2
+                                ? _currentGame.player2Rounds[index]
+                                : 0;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE53935).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            '+$points',
+                            style: const TextStyle(
+                              color: Color(0xFFE53935),
+                              fontSize: 10,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.9),
+        border: Border(
+          top: BorderSide(color: const Color(0xFFE53935).withOpacity(0.3)),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          // Historial
+          _buildBottomBarItem(
+            icon: Icons.history,
+            label: 'Historial',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const HistoryScreen(),
+              ),
+            ),
+          ),
+          // Reiniciar
+          _buildBottomBarItem(
+            icon: Icons.refresh,
+            label: 'Reiniciar',
+            onTap: () => _showResetDialog(),
+          ),
+          // Premium
+          _buildBottomBarItem(
+            icon: Icons.star,
+            label: 'Premium',
+            onTap: () => _showPremiumDialog(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBarItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        splashColor: const Color(0xFFE53935).withOpacity(0.3),
+        highlightColor: const Color(0xFFE53935).withOpacity(0.2),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: const Color(0xFFE53935),
+                size: 24,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFFE53935),
+                  fontSize: 10,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showResetDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D44),
+        title: const Text(
+          'Reiniciar Partida',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        content: const Text(
+          '¿Estás seguro de que quieres reiniciar la partida actual? Se perderán todos los puntos acumulados.',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
           ),
         ),
         actions: [
@@ -63,104 +1002,80 @@ class _GameScreenState extends State<GameScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final value = int.tryParse(controller.text) ?? 0;
-              if (value > 0) {
-                setState(() {
-                  if (player == 1) {
-                    _currentGame = _currentGame.copyWith(
-                      player1Rounds: [..._currentGame.player1Rounds, value],
-                      lastPlayed: DateTime.now(),
-                    );
-                  } else {
-                    _currentGame = _currentGame.copyWith(
-                      player2Rounds: [..._currentGame.player2Rounds, value],
-                      lastPlayed: DateTime.now(),
-                    );
-                  }
-                });
-                _saveGame();
-                Navigator.pop(context);
-              }
+              Navigator.pop(context);
+              _resetAndStartNewGame();
             },
-            child: const Text('Agregar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              elevation: 4,
+              shadowColor: const Color(0xFFE53935).withOpacity(0.3),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Navigator.pop(context);
+                  _resetAndStartNewGame();
+                },
+                borderRadius: BorderRadius.circular(8),
+                splashColor: Colors.white.withOpacity(0.3),
+                highlightColor: Colors.white.withOpacity(0.2),
+                child: const Text(
+                  'Reiniciar',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showFinishGameDialog() {
+  void _showPremiumDialog() {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D44),
-        title: Text(
-          'Finalizar Partida',
-          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold),
+        title: const Text(
+          'Premium',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Poppins',
+          ),
         ),
-        content: Column(
+        content: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '¿Deseas finalizar esta partida?',
-              style: GoogleFonts.poppins(color: Colors.white),
+            Icon(
+              Icons.star,
+              color: Color(0xFFE53935),
+              size: 48,
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF6B35).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+            SizedBox(height: 16),
+            Text(
+              'Funciones Premium',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Column(
-                    children: [
-                      Text(
-                        _currentGame.player1Name,
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '${_currentGame.player1Score} pts',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    'VS',
-                    style: GoogleFonts.poppins(
-                      color: const Color(0xFFE53935),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Column(
-                    children: [
-                      Text(
-                        _currentGame.player2Name,
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '${_currentGame.player2Score} pts',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Próximamente disponibles...',
+              style: TextStyle(
+                color: Colors.white70,
+                fontFamily: 'Poppins',
               ),
             ),
           ],
@@ -168,19 +1083,7 @@ class _GameScreenState extends State<GameScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: Color(0xFFE53935))),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              setState(() {
-                _currentGame = _currentGame.copyWith(isCompleted: true);
-              });
-              await _saveGame();
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Finalizar'),
+            child: const Text('Cerrar', style: TextStyle(color: Color(0xFFE53935))),
           ),
         ],
       ),
@@ -209,393 +1112,105 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final maxRounds = (_currentGame.player1Rounds.length > _currentGame.player2Rounds.length)
-        ? _currentGame.player1Rounds.length
-        : _currentGame.player2Rounds.length;
-
-    return CountryBackgroundWidget(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: Row(
-            children: [
-              Image.asset(
-                'assets/appLogo.png',
-                height: 40,
-                width: 40,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _currentGame.name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Text(
-                      'Ronda ${maxRounds + 1}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: const Color(0xFFE53935),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+  Widget _buildBackground() {
+    print('Building background with: $_selectedBackground'); // Debug
+    
+    if (_selectedBackground == 'default') {
+      return Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF1E1E2E),
+              Color(0xFF2D2D44),
             ],
           ),
-          actions: [
-            if (!_currentGame.isCompleted)
-              IconButton(
-                onPressed: _undoLastRound,
-                icon: const Icon(Icons.undo, color: Color(0xFFE53935)),
-                tooltip: 'Deshacer última ronda',
-              ),
-            if (!_currentGame.isCompleted)
-              IconButton(
-                onPressed: _showFinishGameDialog,
-                icon: const Icon(Icons.flag, color: Colors.green),
-                tooltip: 'Finalizar partida',
-              ),
-          ],
         ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFE53935)))
-            : Column(
-                children: [
-                  // Score Board
-                  Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [const Color(0xFF2D2D44), const Color(0xFF3A3A5C)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 30,
-                                    backgroundColor: const Color(0xFFE53935),
-                                    child: Text(
-                                      _currentGame.player1Name.isNotEmpty
-                                          ? _currentGame.player1Name[0].toUpperCase()
-                                          : 'P',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _currentGame.player1Name,
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE53935),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      '${_currentGame.player1Score}',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE53935),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFE53935).withOpacity(0.3),
-                                    blurRadius: 10,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'VS',
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 30,
-                                    backgroundColor: const Color(0xFF4CAF50),
-                                    child: Text(
-                                      _currentGame.player2Name.isNotEmpty
-                                          ? _currentGame.player2Name[0].toUpperCase()
-                                          : 'P',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _currentGame.player2Name,
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF4CAF50),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      '${_currentGame.player2Score}',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+      );
+    }
 
-                  // Rounds History
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2D2D44).withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE53935).withOpacity(0.1),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(16),
-                                topRight: Radius.circular(16),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  'Historial de Rondas',
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (_currentGame.isCompleted)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      'Ganador: ${_currentGame.winner}',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: maxRounds == 0
-                                ? Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.history,
-                                          size: 60,
-                                          color: Colors.grey.shade400,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No hay rondas jugadas aún',
-                                          style: GoogleFonts.poppins(
-                                            color: Colors.grey.shade300,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    padding: const EdgeInsets.all(16),
-                                    itemCount: maxRounds,
-                                    itemBuilder: (context, index) {
-                                      return Container(
-                                        margin: const EdgeInsets.only(bottom: 12),
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF1E1E2E),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 30,
-                                              height: 30,
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFE53935),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Center(
-                                                child: Text(
-                                                  '${index + 1}',
-                                                  style: GoogleFonts.poppins(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            Expanded(
-                                              child: Text(
-                                                index < _currentGame.player1Rounds.length
-                                                    ? '${_currentGame.player1Rounds[index]} pts'
-                                                    : '-',
-                                                textAlign: TextAlign.center,
-                                                style: GoogleFonts.poppins(
-                                                  color: Colors.white,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                            Container(
-                                              width: 40,
-                                              height: 40,
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey.shade700,
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Center(
-                                                child: Text(
-                                                  'R${index + 1}',
-                                                  style: GoogleFonts.poppins(
-                                                    color: Colors.white,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Text(
-                                                index < _currentGame.player2Rounds.length
-                                                    ? '${_currentGame.player2Rounds[index]} pts'
-                                                    : '-',
-                                                textAlign: TextAlign.center,
-                                                style: GoogleFonts.poppins(
-                                                  color: Colors.white,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
-                      ),
+    return Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/backgrounds/$_selectedBackground.jpg'),
+          fit: BoxFit.cover,
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.4),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          _buildBackground(),
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              title: Row(
+                children: [
+                  Image.asset(
+                    'assets/appLogo.png',
+                    height: 40,
+                    width: 40,
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'DOMINO SCORE',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontFamily: 'Poppins',
                     ),
                   ),
                 ],
               ),
-        floatingActionButton: _currentGame.isCompleted
-            ? null
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  FloatingActionButton.extended(
-                    heroTag: 'p1',
-                    onPressed: () => _showAddPointsDialog(1),
-                    backgroundColor: const Color(0xFFE53935),
-                    icon: const Icon(Icons.add),
-                    label: Text(_currentGame.player1Name),
+              actions: [
+                IconButton(
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    );
+                    // Recargar el fondo al volver de configuración
+                    _loadBackground();
+                  },
+                  icon: const Icon(Icons.settings, color: Colors.white),
+                  tooltip: 'Configuración',
+                ),
+                if (!_currentGame.isCompleted)
+                  IconButton(
+                    onPressed: _undoLastRound,
+                    icon: const Icon(Icons.undo, color: Color(0xFFE53935)),
+                    tooltip: 'Deshacer última ronda',
                   ),
-                  const SizedBox(width: 20),
-                  FloatingActionButton.extended(
-                    heroTag: 'p2',
-                    onPressed: () => _showAddPointsDialog(2),
-                    backgroundColor: const Color(0xFFE53935),
-                    icon: const Icon(Icons.add),
-                    label: Text(_currentGame.player2Name),
+              ],
+            ),
+            body: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFFE53935)))
+                : Column(
+                    children: [
+                      Expanded(
+                        child: _playerCount <= 2
+                            ? _buildTwoPlayerLayout()
+                            : _buildMultiPlayerLayout(),
+                      ),
+                      _buildBottomBar(),
+                    ],
                   ),
-                ],
-              ),
+          ),
+        ],
       ),
     );
   }

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'screens/game_menu_screen.dart';
-import 'screens/country_selection_screen.dart';
-import 'services/country_service.dart';
+import '../models/game_model.dart';
+import 'screens/game_screen.dart';
 
 void main() {
   runApp(DominoScoreApp());
@@ -19,7 +17,7 @@ class DominoScoreApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.red,
         scaffoldBackgroundColor: const Color(0xFF1E1E2E),
-        textTheme: GoogleFonts.poppinsTextTheme(),
+        fontFamily: 'Poppins',
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF2D2D44),
           elevation: 0,
@@ -44,59 +42,17 @@ class DominoScoreApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      home: InitialScreen(),
-    );
-  }
-}
-
-class InitialScreen extends StatefulWidget {
-  const InitialScreen({super.key});
-
-  @override
-  State<InitialScreen> createState() => _InitialScreenState();
-}
-
-class _InitialScreenState extends State<InitialScreen> {
-  final CountryService _countryService = CountryService();
-  bool _isLoading = true;
-  bool _hasCountry = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkCountrySelection();
-  }
-
-  Future<void> _checkCountrySelection() async {
-    final country = await _countryService.getSelectedCountry();
-    setState(() {
-      _hasCountry = country != null;
-      _isLoading = false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF1E1E2E),
-                Color(0xFF2D2D44),
-              ],
-            ),
-          ),
-          child: const Center(
-            child: CircularProgressIndicator(color: Color(0xFFE53935)),
-          ),
+      home: GameScreen(
+        game: DominoGame(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: 'Partida Rápida',
+          createdAt: DateTime.now(),
+          player1Rounds: [],
+          player2Rounds: [],
+          player1Name: 'Home',
+          player2Name: 'Jugador 1',
         ),
-      );
-    }
-
-    return _hasCountry ? GameMenuScreen() : CountrySelectionScreen();
+      ),
+    );
   }
 }
