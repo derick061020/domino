@@ -49,7 +49,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showAddPointsDialog(int player) {
-    final controller = TextEditingController(text: '0');
+    final controller = TextEditingController();
 
     showDialog(
       context: context,
@@ -1297,12 +1297,7 @@ class _GameScreenState extends State<GameScreen> {
                   icon: const Icon(Icons.settings, color: Colors.white),
                   tooltip: 'Configuración',
                 ),
-                if (!_currentGame.isCompleted)
-                  IconButton(
-                    onPressed: _undoLastRound,
-                    icon: const Icon(Icons.undo, color: Color(0xFFE53935)),
-                    tooltip: 'Deshacer última ronda',
-                  ),
+                
               ],
             ),
             body: _isLoading
