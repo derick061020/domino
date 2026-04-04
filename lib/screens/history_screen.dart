@@ -153,10 +153,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildScoresRow(DominoGame game) {
-    // Calcular rondas máximas para mostrar
-    int maxRounds = 0;
-    maxRounds = maxRounds > game.player1Rounds.length ? maxRounds : game.player1Rounds.length;
-    maxRounds = maxRounds > game.player2Rounds.length ? maxRounds : game.player2Rounds.length;
+    // Crear lista de jugadores que tienen puntos
+    final players = [
+      {'name': game.player1Name, 'score': game.player1Score},
+      {'name': game.player2Name, 'score': game.player2Score},
+      {'name': game.player3Name, 'score': game.player3Score},
+      {'name': game.player4Name, 'score': game.player4Score},
+    ];
+    
+    // Filtrar jugadores que tienen puntos o son los primeros 2
+    final activePlayers = players.where((player) => (player['score']! as int) > 0).toList();
+    if (activePlayers.isEmpty) {
+      // Si nadie tiene puntos, mostrar los primeros 2 jugadores
+      activePlayers.addAll(players.take(2));
+    }
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -167,199 +177,45 @@ class _HistoryScreenState extends State<HistoryScreen> {
           color: const Color(0xFFE53935).withOpacity(0.3),
         ),
       ),
-      child: Column(
-        children: [
-          // Fila de nombres y puntuaciones totales
-          Row(
-            children: [
-              // Jugador 1
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      game.player1Name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                      ),
+      child: Row(
+        children: List.generate(activePlayers.length, (index) {
+          final player = activePlayers[index];
+          final isLast = index == activePlayers.length - 1;
+          
+          return [
+            Expanded(
+              child: Column(
+                children: [
+                  Text(
+                    player['name'] as String,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Poppins',
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${game.player1Score} pts',
-                      style: const TextStyle(
-                        color: Color(0xFFE53935),
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${player['score']} pts',
+                    style: const TextStyle(
+                      color: Color(0xFFE53935),
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Poppins',
                     ),
-                  ],
-                ),
-              ),
-              // Separador
-              Container(
-                width: 2,
-                height: 60,
-                color: const Color(0xFFE53935).withOpacity(0.3),
-              ),
-              // Jugador 2
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      game.player2Name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${game.player2Score} pts',
-                      style: const TextStyle(
-                        color: Color(0xFFE53935),
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Separador
-              Container(
-                width: 2,
-                height: 60,
-                color: const Color(0xFFE53935).withOpacity(0.3),
-              ),
-              // Jugador 3 (placeholder)
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      'Jugador 3',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '0 pts',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.3),
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Separador
-              Container(
-                width: 2,
-                height: 60,
-                color: const Color(0xFFE53935).withOpacity(0.3),
-              ),
-              // Jugador 4 (placeholder)
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      'Jugador 4',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '0 pts',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.3),
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (maxRounds > 0) ...[
-            const SizedBox(height: 16),
-            // Línea divisoria
-            Container(
-              height: 1,
-              color: const Color(0xFFE53935).withOpacity(0.3),
-            ),
-            const SizedBox(height: 12),
-            // Historial de rondas (sin etiquetas R1, R2)
-            SizedBox(
-              height: 120,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: maxRounds,
-                itemBuilder: (context, index) {
-                  final p1Score = index < game.player1Rounds.length ? game.player1Rounds[index] : 0;
-                  final p2Score = index < game.player2Rounds.length ? game.player2Rounds[index] : 0;
-                  
-                  return Container(
-                    width: 80,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: const Color(0xFFE53935).withOpacity(0.2),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Puntuaciones de la ronda (sin etiqueta R1)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Text(
-                              p1Score > 0 ? '+$p1Score' : '-',
-                              style: TextStyle(
-                                color: p1Score > 0 ? const Color(0xFFE53935) : Colors.white.withOpacity(0.5),
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
-                            Text(
-                              p2Score > 0 ? '+$p2Score' : '-',
-                              style: TextStyle(
-                                color: p2Score > 0 ? const Color(0xFF4CAF50) : Colors.white.withOpacity(0.5),
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
-          ],
-        ],
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 60,
+                color: const Color(0xFFE53935).withOpacity(0.3),
+              ),
+          ];
+        }).expand((e) => e).toList(),
       ),
     );
   }

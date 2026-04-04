@@ -49,7 +49,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showAddPointsDialog(int player) {
-    final controller = TextEditingController();
+    final controller = TextEditingController(text: '0');
 
     showDialog(
       context: context,
@@ -74,8 +74,8 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               IconButton(
                 onPressed: () {
-                  final currentValue = int.tryParse(controller.text) ?? _maxPoints;
-                  controller.text = (currentValue - 10 >= 50 ? currentValue - 10 : 50).toString();
+                  final currentValue = int.tryParse(controller.text) ?? 0;
+                  controller.text = (currentValue - 10 >= 0 ? currentValue - 10 : 0).toString();
                 },
                 icon: const Icon(Icons.remove, color: Color(0xFFE53935)),
                 iconSize: 20,
@@ -85,6 +85,7 @@ class _GameScreenState extends State<GameScreen> {
                   controller: controller,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
+                  autofocus: true,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -93,7 +94,7 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
-                    hintText: '200',
+                    hintText: '0',
                     hintStyle: TextStyle(
                       color: Colors.white24,
                       fontSize: 24,
@@ -104,7 +105,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
               IconButton(
                 onPressed: () {
-                  final currentValue = int.tryParse(controller.text) ?? _maxPoints;
+                  final currentValue = int.tryParse(controller.text) ?? 0;
                   controller.text = (currentValue + 10).toString();
                 },
                 icon: const Icon(Icons.add, color: Color(0xFFE53935)),
@@ -123,18 +124,60 @@ class _GameScreenState extends State<GameScreen> {
               final points = int.tryParse(controller.text);
               if (points != null && points > 0) {
                 setState(() {
-                  if (player == 1) {
+                  // Verificar si hay una ronda incompleta (donde el jugador tiene 0)
+                  final currentRoundIndex = _currentGame.player1Rounds.length - 1;
+                  bool hasIncompleteRound = false;
+                  
+                  if (currentRoundIndex >= 0) {
+                    // Verificar si en la última ronda el jugador actual tiene 0
+                    if ((player == 1 && _currentGame.player1Rounds[currentRoundIndex] == 0) ||
+                        (player == 2 && _currentGame.player2Rounds[currentRoundIndex] == 0) ||
+                        (player == 3 && _currentGame.player3Rounds[currentRoundIndex] == 0) ||
+                        (player == 4 && _currentGame.player4Rounds[currentRoundIndex] == 0)) {
+                      hasIncompleteRound = true;
+                    }
+                  }
+                  
+                  if (hasIncompleteRound) {
+                    // Actualizar la ronda existente
+                    final newPlayer1Rounds = List<int>.from(_currentGame.player1Rounds);
+                    final newPlayer2Rounds = List<int>.from(_currentGame.player2Rounds);
+                    final newPlayer3Rounds = List<int>.from(_currentGame.player3Rounds);
+                    final newPlayer4Rounds = List<int>.from(_currentGame.player4Rounds);
+                    
+                    if (player == 1) newPlayer1Rounds[currentRoundIndex] = points;
+                    else if (player == 2) newPlayer2Rounds[currentRoundIndex] = points;
+                    else if (player == 3) newPlayer3Rounds[currentRoundIndex] = points;
+                    else if (player == 4) newPlayer4Rounds[currentRoundIndex] = points;
+                    
                     _currentGame = _currentGame.copyWith(
-                      player1Rounds: [..._currentGame.player1Rounds, points],
+                      player1Rounds: newPlayer1Rounds,
+                      player2Rounds: newPlayer2Rounds,
+                      player3Rounds: newPlayer3Rounds,
+                      player4Rounds: newPlayer4Rounds,
                       lastPlayed: DateTime.now(),
                     );
-                  } else if (player == 2) {
+                  } else {
+                    // Crear nueva ronda sincronizada para todos los jugadores
+                    final newPlayer1Rounds = [..._currentGame.player1Rounds];
+                    final newPlayer2Rounds = [..._currentGame.player2Rounds];
+                    final newPlayer3Rounds = [..._currentGame.player3Rounds];
+                    final newPlayer4Rounds = [..._currentGame.player4Rounds];
+                    
+                    // Agregar puntos al jugador seleccionado y 0 a los demás
+                    newPlayer1Rounds.add(player == 1 ? points : 0);
+                    newPlayer2Rounds.add(player == 2 ? points : 0);
+                    newPlayer3Rounds.add(player == 3 ? points : 0);
+                    newPlayer4Rounds.add(player == 4 ? points : 0);
+                    
                     _currentGame = _currentGame.copyWith(
-                      player2Rounds: [..._currentGame.player2Rounds, points],
+                      player1Rounds: newPlayer1Rounds,
+                      player2Rounds: newPlayer2Rounds,
+                      player3Rounds: newPlayer3Rounds,
+                      player4Rounds: newPlayer4Rounds,
                       lastPlayed: DateTime.now(),
                     );
                   }
-                  // TODO: Agregar soporte para jugadores 3 y 4
                 });
                 await _saveGame();
                 Navigator.pop(context);
@@ -158,18 +201,60 @@ class _GameScreenState extends State<GameScreen> {
                   final points = int.tryParse(controller.text);
                   if (points != null && points > 0) {
                     setState(() {
-                      if (player == 1) {
+                      // Verificar si hay una ronda incompleta (donde el jugador tiene 0)
+                      final currentRoundIndex = _currentGame.player1Rounds.length - 1;
+                      bool hasIncompleteRound = false;
+                      
+                      if (currentRoundIndex >= 0) {
+                        // Verificar si en la última ronda el jugador actual tiene 0
+                        if ((player == 1 && _currentGame.player1Rounds[currentRoundIndex] == 0) ||
+                            (player == 2 && _currentGame.player2Rounds[currentRoundIndex] == 0) ||
+                            (player == 3 && _currentGame.player3Rounds[currentRoundIndex] == 0) ||
+                            (player == 4 && _currentGame.player4Rounds[currentRoundIndex] == 0)) {
+                          hasIncompleteRound = true;
+                        }
+                      }
+                      
+                      if (hasIncompleteRound) {
+                        // Actualizar la ronda existente
+                        final newPlayer1Rounds = List<int>.from(_currentGame.player1Rounds);
+                        final newPlayer2Rounds = List<int>.from(_currentGame.player2Rounds);
+                        final newPlayer3Rounds = List<int>.from(_currentGame.player3Rounds);
+                        final newPlayer4Rounds = List<int>.from(_currentGame.player4Rounds);
+                        
+                        if (player == 1) newPlayer1Rounds[currentRoundIndex] = points;
+                        else if (player == 2) newPlayer2Rounds[currentRoundIndex] = points;
+                        else if (player == 3) newPlayer3Rounds[currentRoundIndex] = points;
+                        else if (player == 4) newPlayer4Rounds[currentRoundIndex] = points;
+                        
                         _currentGame = _currentGame.copyWith(
-                          player1Rounds: [..._currentGame.player1Rounds, points],
+                          player1Rounds: newPlayer1Rounds,
+                          player2Rounds: newPlayer2Rounds,
+                          player3Rounds: newPlayer3Rounds,
+                          player4Rounds: newPlayer4Rounds,
                           lastPlayed: DateTime.now(),
                         );
-                      } else if (player == 2) {
+                      } else {
+                        // Crear nueva ronda sincronizada para todos los jugadores
+                        final newPlayer1Rounds = [..._currentGame.player1Rounds];
+                        final newPlayer2Rounds = [..._currentGame.player2Rounds];
+                        final newPlayer3Rounds = [..._currentGame.player3Rounds];
+                        final newPlayer4Rounds = [..._currentGame.player4Rounds];
+                        
+                        // Agregar puntos al jugador seleccionado y 0 a los demás
+                        newPlayer1Rounds.add(player == 1 ? points : 0);
+                        newPlayer2Rounds.add(player == 2 ? points : 0);
+                        newPlayer3Rounds.add(player == 3 ? points : 0);
+                        newPlayer4Rounds.add(player == 4 ? points : 0);
+                        
                         _currentGame = _currentGame.copyWith(
-                          player2Rounds: [..._currentGame.player2Rounds, points],
+                          player1Rounds: newPlayer1Rounds,
+                          player2Rounds: newPlayer2Rounds,
+                          player3Rounds: newPlayer3Rounds,
+                          player4Rounds: newPlayer4Rounds,
                           lastPlayed: DateTime.now(),
                         );
                       }
-                      // TODO: Agregar soporte para jugadores 3 y 4
                     });
                     await _saveGame();
                     Navigator.pop(context);
@@ -201,7 +286,10 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _checkWinCondition() {
-    if (_currentGame.player1Score >= _maxPoints || _currentGame.player2Score >= _maxPoints) {
+    if (_currentGame.player1Score >= _maxPoints || 
+        _currentGame.player2Score >= _maxPoints || 
+        _currentGame.player3Score >= _maxPoints || 
+        _currentGame.player4Score >= _maxPoints) {
       // Marcar la partida como completada inmediatamente
       setState(() {
         _currentGame = _currentGame.copyWith(isCompleted: true);
@@ -212,7 +300,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showGameFinishedDialog() {
-    final winner = _currentGame.player1Score >= _maxPoints ? 'Home' : _currentGame.player2Name;
+    final winner = _currentGame.winner;
     
     showDialog(
       context: context,
@@ -240,7 +328,7 @@ class _GameScreenState extends State<GameScreen> {
               child: Column(
                 children: [
                   Text(
-                    '¡$winner ha ganado!',
+                    winner == 'Empate' ? '¡EMPATE!' : '¡$winner ha ganado!',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFFE53935),
@@ -251,7 +339,7 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Alcanzó $_maxPoints puntos',
+                    winner == 'Empate' ? 'No hay ganador' : 'Alcanzó $_maxPoints puntos',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
@@ -275,7 +363,7 @@ class _GameScreenState extends State<GameScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Home: ${_currentGame.player1Score} pts\n${_currentGame.player2Name}: ${_currentGame.player2Score} pts',
+              '${_currentGame.player1Name}: ${_currentGame.player1Score} pts\n${_currentGame.player2Name}: ${_currentGame.player2Score} pts${_currentGame.player3Score > 0 ? '\n${_currentGame.player3Name}: ${_currentGame.player3Score} pts' : ''}${_currentGame.player4Score > 0 ? '\n${_currentGame.player4Name}: ${_currentGame.player4Score} pts' : ''}',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFFE53935),
@@ -335,8 +423,12 @@ class _GameScreenState extends State<GameScreen> {
       createdAt: DateTime.now(),
       player1Rounds: [],
       player2Rounds: [],
+      player3Rounds: [],
+      player4Rounds: [],
       player1Name: 'Home',
       player2Name: 'Jugador 1',
+      player3Name: 'Jugador 2',
+      player4Name: 'Jugador 3',
     );
 
     // Reemplazar la pantalla actual con la nueva partida
@@ -357,8 +449,12 @@ class _GameScreenState extends State<GameScreen> {
         createdAt: DateTime.now(),
         player1Rounds: [],
         player2Rounds: [],
+        player3Rounds: [],
+        player4Rounds: [],
         player1Name: 'Home',
         player2Name: 'Jugador 1',
+        player3Name: 'Jugador 2',
+        player4Name: 'Jugador 3',
       );
 
       // Reemplazar la pantalla actual con la nueva partida
@@ -549,8 +645,12 @@ class _GameScreenState extends State<GameScreen> {
       createdAt: DateTime.now(),
       player1Rounds: [],
       player2Rounds: [],
+      player3Rounds: [],
+      player4Rounds: [],
       player1Name: 'Home',
       player2Name: 'Jugador 1',
+      player3Name: 'Jugador 2',
+      player4Name: 'Jugador 3',
     );
 
     // Reemplazar la pantalla actual con la nueva partida
@@ -577,7 +677,7 @@ class _GameScreenState extends State<GameScreen> {
               // Separador
               Container(
                 width: 2,
-                color: const Color(0xFFE53935).withOpacity(0.3),
+                color: Colors.transparent,
               ),
               // Jugador 2
               Expanded(
@@ -610,7 +710,7 @@ class _GameScreenState extends State<GameScreen> {
                     // Separador
                     Container(
                       width: 2,
-                      color: const Color(0xFFE53935).withOpacity(0.3),
+                      color: Colors.transparent,
                     ),
                     // Jugador 2
                     Expanded(
@@ -622,7 +722,7 @@ class _GameScreenState extends State<GameScreen> {
               // Separador horizontal
               Container(
                 height: 2,
-                color: const Color(0xFFE53935).withOpacity(0.3),
+                color: Colors.transparent,
               ),
               // Segunda fila
               Expanded(
@@ -637,7 +737,7 @@ class _GameScreenState extends State<GameScreen> {
                     if (_playerCount >= 3)
                       Container(
                         width: 2,
-                        color: const Color(0xFFE53935).withOpacity(0.3),
+                        color: Colors.transparent,
                       ),
                     // Jugador 4 o espacio vacío
                     if (_playerCount >= 4)
@@ -863,13 +963,21 @@ class _GameScreenState extends State<GameScreen> {
                           ? _currentGame.player1Rounds.length
                           : playerNumber == 2
                               ? _currentGame.player2Rounds.length
-                              : 0, // TODO: Implementar para jugadores 3-4
+                              : playerNumber == 3
+                                  ? _currentGame.player3Rounds.length
+                                  : playerNumber == 4
+                                      ? _currentGame.player4Rounds.length
+                                      : 0,
                       itemBuilder: (context, index) {
                         final points = playerNumber == 1
                             ? _currentGame.player1Rounds[index]
                             : playerNumber == 2
                                 ? _currentGame.player2Rounds[index]
-                                : 0;
+                                : playerNumber == 3
+                                    ? _currentGame.player3Rounds[index]
+                                    : playerNumber == 4
+                                        ? _currentGame.player4Rounds[index]
+                                        : 0;
                         return Container(
                           margin: const EdgeInsets.only(bottom: 2),
                           padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 6),
@@ -878,7 +986,7 @@ class _GameScreenState extends State<GameScreen> {
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
-                            '+$points',
+                            points > 0 ? '+$points' : '-',
                             style: const TextStyle(
                               color: Color(0xFFE53935),
                               fontSize: 10,
