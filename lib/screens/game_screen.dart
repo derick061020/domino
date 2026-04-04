@@ -731,7 +731,7 @@ class _GameScreenState extends State<GameScreen> {
                     // Jugador 3
                     if (_playerCount >= 3)
                       Expanded(
-                        child: _buildPlayerSection(3, 'Jugador 2', 0),
+                        child: _buildPlayerSection(3, _currentGame.player3Name, _currentGame.player3Score),
                       ),
                     // Separador
                     if (_playerCount >= 3)
@@ -742,7 +742,7 @@ class _GameScreenState extends State<GameScreen> {
                     // Jugador 4 o espacio vacío
                     if (_playerCount >= 4)
                       Expanded(
-                        child: _buildPlayerSection(4, 'Jugador 3', 0),
+                        child: _buildPlayerSection(4, _currentGame.player4Name, _currentGame.player4Score),
                       )
                     else if (_playerCount == 3)
                       Expanded(
