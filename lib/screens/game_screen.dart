@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_model.dart';
 import '../services/game_service.dart';
+import '../languages/app_localizations.dart';
 import 'settings_screen.dart';
 import 'history_screen.dart';
 
@@ -42,6 +43,16 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  Future<Map<String, String>> _loadPlayerNames() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'player1Name': prefs.getString('player1Name') ?? 'Home',
+      'player2Name': prefs.getString('player2Name') ?? 'Jugador 1',
+      'player3Name': prefs.getString('player3Name') ?? 'Jugador 2',
+      'player4Name': prefs.getString('player4Name') ?? 'Jugador 3',
+    };
+  }
+
   Future<void> _saveGame() async {
     setState(() => _isLoading = true);
     await _gameService.saveGame(_currentGame);
@@ -50,13 +61,14 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showAddPointsDialog(int player) {
     final controller = TextEditingController();
+    final localizations = AppLocalizations.of(context);
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D44),
         title: Text(
-          'Agregar puntos - ${player == 1 ? 'Home' : player == 2 ? 'Jugador 1' : player == 3 ? 'Jugador 2' : 'Jugador 3'}',
+          '${localizations.get('add_points')} - ${player == 1 ? _currentGame.player1Name : player == 2 ? _currentGame.player2Name : player == 3 ? _currentGame.player3Name : _currentGame.player4Name}',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -94,7 +106,7 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
-                    hintText: '0',
+                    hintText: '',
                     hintStyle: TextStyle(
                       color: Colors.white24,
                       fontSize: 24,
@@ -117,67 +129,32 @@ class _GameScreenState extends State<GameScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: Color(0xFFE53935))),
+            child: Text(localizations.get('cancel'), style: const TextStyle(color: Color(0xFFE53935))),
           ),
           ElevatedButton(
             onPressed: () async {
               final points = int.tryParse(controller.text);
               if (points != null && points > 0) {
                 setState(() {
-                  // Verificar si hay una ronda incompleta (donde el jugador tiene 0)
-                  final currentRoundIndex = _currentGame.player1Rounds.length - 1;
-                  bool hasIncompleteRound = false;
+                  // Crear nueva ronda sincronizada para todos los jugadores
+                  final newPlayer1Rounds = [..._currentGame.player1Rounds];
+                  final newPlayer2Rounds = [..._currentGame.player2Rounds];
+                  final newPlayer3Rounds = [..._currentGame.player3Rounds];
+                  final newPlayer4Rounds = [..._currentGame.player4Rounds];
                   
-                  if (currentRoundIndex >= 0) {
-                    // Verificar si en la última ronda el jugador actual tiene 0
-                    if ((player == 1 && _currentGame.player1Rounds[currentRoundIndex] == 0) ||
-                        (player == 2 && _currentGame.player2Rounds[currentRoundIndex] == 0) ||
-                        (player == 3 && _currentGame.player3Rounds[currentRoundIndex] == 0) ||
-                        (player == 4 && _currentGame.player4Rounds[currentRoundIndex] == 0)) {
-                      hasIncompleteRound = true;
-                    }
-                  }
+                  // Agregar puntos al jugador seleccionado y 0 a los demás
+                  newPlayer1Rounds.add(player == 1 ? points : 0);
+                  newPlayer2Rounds.add(player == 2 ? points : 0);
+                  newPlayer3Rounds.add(player == 3 ? points : 0);
+                  newPlayer4Rounds.add(player == 4 ? points : 0);
                   
-                  if (hasIncompleteRound) {
-                    // Actualizar la ronda existente
-                    final newPlayer1Rounds = List<int>.from(_currentGame.player1Rounds);
-                    final newPlayer2Rounds = List<int>.from(_currentGame.player2Rounds);
-                    final newPlayer3Rounds = List<int>.from(_currentGame.player3Rounds);
-                    final newPlayer4Rounds = List<int>.from(_currentGame.player4Rounds);
-                    
-                    if (player == 1) newPlayer1Rounds[currentRoundIndex] = points;
-                    else if (player == 2) newPlayer2Rounds[currentRoundIndex] = points;
-                    else if (player == 3) newPlayer3Rounds[currentRoundIndex] = points;
-                    else if (player == 4) newPlayer4Rounds[currentRoundIndex] = points;
-                    
-                    _currentGame = _currentGame.copyWith(
-                      player1Rounds: newPlayer1Rounds,
-                      player2Rounds: newPlayer2Rounds,
-                      player3Rounds: newPlayer3Rounds,
-                      player4Rounds: newPlayer4Rounds,
-                      lastPlayed: DateTime.now(),
-                    );
-                  } else {
-                    // Crear nueva ronda sincronizada para todos los jugadores
-                    final newPlayer1Rounds = [..._currentGame.player1Rounds];
-                    final newPlayer2Rounds = [..._currentGame.player2Rounds];
-                    final newPlayer3Rounds = [..._currentGame.player3Rounds];
-                    final newPlayer4Rounds = [..._currentGame.player4Rounds];
-                    
-                    // Agregar puntos al jugador seleccionado y 0 a los demás
-                    newPlayer1Rounds.add(player == 1 ? points : 0);
-                    newPlayer2Rounds.add(player == 2 ? points : 0);
-                    newPlayer3Rounds.add(player == 3 ? points : 0);
-                    newPlayer4Rounds.add(player == 4 ? points : 0);
-                    
-                    _currentGame = _currentGame.copyWith(
-                      player1Rounds: newPlayer1Rounds,
-                      player2Rounds: newPlayer2Rounds,
-                      player3Rounds: newPlayer3Rounds,
-                      player4Rounds: newPlayer4Rounds,
-                      lastPlayed: DateTime.now(),
-                    );
-                  }
+                  _currentGame = _currentGame.copyWith(
+                    player1Rounds: newPlayer1Rounds,
+                    player2Rounds: newPlayer2Rounds,
+                    player3Rounds: newPlayer3Rounds,
+                    player4Rounds: newPlayer4Rounds,
+                    lastPlayed: DateTime.now(),
+                  );
                 });
                 await _saveGame();
                 Navigator.pop(context);
@@ -201,60 +178,25 @@ class _GameScreenState extends State<GameScreen> {
                   final points = int.tryParse(controller.text);
                   if (points != null && points > 0) {
                     setState(() {
-                      // Verificar si hay una ronda incompleta (donde el jugador tiene 0)
-                      final currentRoundIndex = _currentGame.player1Rounds.length - 1;
-                      bool hasIncompleteRound = false;
+                      // Crear nueva ronda sincronizada para todos los jugadores
+                      final newPlayer1Rounds = [..._currentGame.player1Rounds];
+                      final newPlayer2Rounds = [..._currentGame.player2Rounds];
+                      final newPlayer3Rounds = [..._currentGame.player3Rounds];
+                      final newPlayer4Rounds = [..._currentGame.player4Rounds];
                       
-                      if (currentRoundIndex >= 0) {
-                        // Verificar si en la última ronda el jugador actual tiene 0
-                        if ((player == 1 && _currentGame.player1Rounds[currentRoundIndex] == 0) ||
-                            (player == 2 && _currentGame.player2Rounds[currentRoundIndex] == 0) ||
-                            (player == 3 && _currentGame.player3Rounds[currentRoundIndex] == 0) ||
-                            (player == 4 && _currentGame.player4Rounds[currentRoundIndex] == 0)) {
-                          hasIncompleteRound = true;
-                        }
-                      }
+                      // Agregar puntos al jugador seleccionado y 0 a los demás
+                      newPlayer1Rounds.add(player == 1 ? points : 0);
+                      newPlayer2Rounds.add(player == 2 ? points : 0);
+                      newPlayer3Rounds.add(player == 3 ? points : 0);
+                      newPlayer4Rounds.add(player == 4 ? points : 0);
                       
-                      if (hasIncompleteRound) {
-                        // Actualizar la ronda existente
-                        final newPlayer1Rounds = List<int>.from(_currentGame.player1Rounds);
-                        final newPlayer2Rounds = List<int>.from(_currentGame.player2Rounds);
-                        final newPlayer3Rounds = List<int>.from(_currentGame.player3Rounds);
-                        final newPlayer4Rounds = List<int>.from(_currentGame.player4Rounds);
-                        
-                        if (player == 1) newPlayer1Rounds[currentRoundIndex] = points;
-                        else if (player == 2) newPlayer2Rounds[currentRoundIndex] = points;
-                        else if (player == 3) newPlayer3Rounds[currentRoundIndex] = points;
-                        else if (player == 4) newPlayer4Rounds[currentRoundIndex] = points;
-                        
-                        _currentGame = _currentGame.copyWith(
-                          player1Rounds: newPlayer1Rounds,
-                          player2Rounds: newPlayer2Rounds,
-                          player3Rounds: newPlayer3Rounds,
-                          player4Rounds: newPlayer4Rounds,
-                          lastPlayed: DateTime.now(),
-                        );
-                      } else {
-                        // Crear nueva ronda sincronizada para todos los jugadores
-                        final newPlayer1Rounds = [..._currentGame.player1Rounds];
-                        final newPlayer2Rounds = [..._currentGame.player2Rounds];
-                        final newPlayer3Rounds = [..._currentGame.player3Rounds];
-                        final newPlayer4Rounds = [..._currentGame.player4Rounds];
-                        
-                        // Agregar puntos al jugador seleccionado y 0 a los demás
-                        newPlayer1Rounds.add(player == 1 ? points : 0);
-                        newPlayer2Rounds.add(player == 2 ? points : 0);
-                        newPlayer3Rounds.add(player == 3 ? points : 0);
-                        newPlayer4Rounds.add(player == 4 ? points : 0);
-                        
-                        _currentGame = _currentGame.copyWith(
-                          player1Rounds: newPlayer1Rounds,
-                          player2Rounds: newPlayer2Rounds,
-                          player3Rounds: newPlayer3Rounds,
-                          player4Rounds: newPlayer4Rounds,
-                          lastPlayed: DateTime.now(),
-                        );
-                      }
+                      _currentGame = _currentGame.copyWith(
+                        player1Rounds: newPlayer1Rounds,
+                        player2Rounds: newPlayer2Rounds,
+                        player3Rounds: newPlayer3Rounds,
+                        player4Rounds: newPlayer4Rounds,
+                        lastPlayed: DateTime.now(),
+                      );
                     });
                     await _saveGame();
                     Navigator.pop(context);
@@ -265,10 +207,10 @@ class _GameScreenState extends State<GameScreen> {
                 },
                 borderRadius: BorderRadius.circular(8),
                 splashColor: Colors.white.withOpacity(0.3),
-                highlightColor: Colors.white.withOpacity(0.2),
-                child: const Text(
-                  'Agregar',
-                  style: TextStyle(
+                highlightColor: const Color(0xFFE53935).withOpacity(0.2),
+                child: Text(
+                  localizations.get('add'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Poppins',
@@ -300,16 +242,17 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showGameFinishedDialog() {
+    final localizations = AppLocalizations.of(context);
     final winner = _currentGame.winner;
     
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D44),
-        title: const Text(
-          '🎉 ¡PARTIDA TERMINADA! 🎉',
+        title: Text(
+          '🎉 ${localizations.get('game_over')} 🎉',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -328,7 +271,7 @@ class _GameScreenState extends State<GameScreen> {
               child: Column(
                 children: [
                   Text(
-                    winner == 'Empate' ? '¡EMPATE!' : '¡$winner ha ganado!',
+                    winner == 'Empate' ? localizations.get('tie') : '¡$winner ${localizations.get('winner')}!',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFFE53935),
@@ -339,7 +282,7 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    winner == 'Empate' ? 'No hay ganador' : 'Alcanzó $_maxPoints puntos',
+                    winner == 'Empate' ? localizations.get('no_winner') : '${localizations.get('reached_points')} $_maxPoints',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
@@ -352,7 +295,7 @@ class _GameScreenState extends State<GameScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Puntuación final:',
+              localizations.get('final_score'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
@@ -363,7 +306,7 @@ class _GameScreenState extends State<GameScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${_currentGame.player1Name}: ${_currentGame.player1Score} pts\n${_currentGame.player2Name}: ${_currentGame.player2Score} pts${_currentGame.player3Score > 0 ? '\n${_currentGame.player3Name}: ${_currentGame.player3Score} pts' : ''}${_currentGame.player4Score > 0 ? '\n${_currentGame.player4Name}: ${_currentGame.player4Score} pts' : ''}',
+              '${_currentGame.player1Name}: ${_currentGame.player1Score} ${localizations.get('points')}\n${_currentGame.player2Name}: ${_currentGame.player2Score} ${localizations.get('points')}${_currentGame.player3Score > 0 ? '\n${_currentGame.player3Name}: ${_currentGame.player3Score} ${localizations.get('points')}' : ''}${_currentGame.player4Score > 0 ? '\n${_currentGame.player4Name}: ${_currentGame.player4Score} ${localizations.get('points')}' : ''}',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFFE53935),
@@ -394,9 +337,9 @@ class _GameScreenState extends State<GameScreen> {
                 highlightColor: Colors.white.withOpacity(0.2),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  child: const Text(
-                    'REINICIAR',
-                    style: TextStyle(
+                  child: Text(
+                    localizations.get('restart'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontFamily: 'Poppins',
@@ -414,9 +357,12 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  void _saveAndResetGame() {
+  void _saveAndResetGame() async {
     // La partida ya está marcada como completada en _checkWinCondition
-    // Solo creamos la nueva partida y reemplazamos la pantalla
+    // Cargar nombres de jugadores guardados
+    final playerNames = await _loadPlayerNames();
+    
+    // Crear nueva partida y reemplazar la pantalla
     final newGame = DominoGame(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: 'Partida Rápida',
@@ -425,10 +371,10 @@ class _GameScreenState extends State<GameScreen> {
       player2Rounds: [],
       player3Rounds: [],
       player4Rounds: [],
-      player1Name: 'Home',
-      player2Name: 'Jugador 1',
-      player3Name: 'Jugador 2',
-      player4Name: 'Jugador 3',
+      player1Name: playerNames['player1Name']!,
+      player2Name: playerNames['player2Name']!,
+      player3Name: playerNames['player3Name']!,
+      player4Name: playerNames['player4Name']!,
     );
 
     // Reemplazar la pantalla actual con la nueva partida
@@ -439,31 +385,34 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _resetAndStartNewGame() {
+  void _resetAndStartNewGame() async {
     // Guardar la partida actual antes de reiniciar
-    _saveGame().then((_) {
-      // Crear nueva partida
-      final newGame = DominoGame(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: 'Partida Rápida',
-        createdAt: DateTime.now(),
-        player1Rounds: [],
-        player2Rounds: [],
-        player3Rounds: [],
-        player4Rounds: [],
-        player1Name: 'Home',
-        player2Name: 'Jugador 1',
-        player3Name: 'Jugador 2',
-        player4Name: 'Jugador 3',
-      );
+    await _saveGame();
+    
+    // Cargar nombres de jugadores guardados
+    final playerNames = await _loadPlayerNames();
+    
+    // Crear nueva partida
+    final newGame = DominoGame(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: 'Partida Rápida',
+      createdAt: DateTime.now(),
+      player1Rounds: [],
+      player2Rounds: [],
+      player3Rounds: [],
+      player4Rounds: [],
+      player1Name: playerNames['player1Name']!,
+      player2Name: playerNames['player2Name']!,
+      player3Name: playerNames['player3Name']!,
+      player4Name: playerNames['player4Name']!,
+    );
 
-      // Reemplazar la pantalla actual con la nueva partida
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => GameScreen(game: newGame),
-        ),
-      );
-    });
+    // Reemplazar la pantalla actual con la nueva partida
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(game: newGame),
+      ),
+    );
   }
 
   void _showMaxPointsDialog() {
@@ -637,7 +586,10 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _restartGameWithNewPlayerCount() {
+  void _restartGameWithNewPlayerCount() async {
+    // Cargar nombres de jugadores guardados
+    final playerNames = await _loadPlayerNames();
+    
     // Crear nueva partida con el número de jugadores actualizado
     final newGame = DominoGame(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -647,10 +599,10 @@ class _GameScreenState extends State<GameScreen> {
       player2Rounds: [],
       player3Rounds: [],
       player4Rounds: [],
-      player1Name: 'Home',
-      player2Name: 'Jugador 1',
-      player3Name: 'Jugador 2',
-      player4Name: 'Jugador 3',
+      player1Name: playerNames['player1Name']!,
+      player2Name: playerNames['player2Name']!,
+      player3Name: playerNames['player3Name']!,
+      player4Name: playerNames['player4Name']!,
     );
 
     // Reemplazar la pantalla actual con la nueva partida
@@ -858,21 +810,132 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  void _showEditPlayerNameDialog(int playerNumber, String currentName) {
+    final controller = TextEditingController(text: currentName);
+    final localizations = AppLocalizations.of(context);
+    
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D44),
+        title: Text(
+          '${localizations.get('edit_name')} - ${localizations.get('player')} $playerNumber',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+          ),
+          decoration: InputDecoration(
+            hintText: localizations.get('enter_name'),
+            hintStyle: const TextStyle(
+              color: Colors.white24,
+              fontFamily: 'Poppins',
+            ),
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFFE53935)),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFFE53935)),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(localizations.get('cancel'), style: const TextStyle(color: Color(0xFFE53935))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                // Guardar el nombre en SharedPreferences
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('player${playerNumber}Name', newName);
+                
+                // Actualizar el juego actual
+                setState(() {
+                  switch (playerNumber) {
+                    case 1:
+                      _currentGame = _currentGame.copyWith(player1Name: newName);
+                      break;
+                    case 2:
+                      _currentGame = _currentGame.copyWith(player2Name: newName);
+                      break;
+                    case 3:
+                      _currentGame = _currentGame.copyWith(player3Name: newName);
+                      break;
+                    case 4:
+                      _currentGame = _currentGame.copyWith(player4Name: newName);
+                      break;
+                  }
+                });
+                
+                await _saveGame();
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+            ),
+            child: Text(localizations.get('save')),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPlayerSection(int playerNumber, String playerName, int score) {
+    final localizations = AppLocalizations.of(context);
+    
     return Container(
       padding: const EdgeInsets.all(12),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // Nombre del jugador (más pequeño)
-          Text(
-            playerName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Poppins',
-            ),
+          // Nombre del jugador con botón de editar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                playerName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Botón de editar nombre
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _showEditPlayerNameDialog(playerNumber, playerName),
+                  borderRadius: BorderRadius.circular(4),
+                  splashColor: const Color(0xFFE53935).withOpacity(0.3),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFE53935).withOpacity(0.5)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(
+                      Icons.edit,
+                      color: Color(0xFFE53935),
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           // Puntuación (más pequeña)
@@ -886,7 +949,7 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ),
           Text(
-            'pts',
+            localizations.get('points'),
             style: TextStyle(
               color: Colors.white.withOpacity(0.7),
               fontSize: 12,
@@ -911,18 +974,18 @@ class _GameScreenState extends State<GameScreen> {
                     color: const Color(0xFFE53935),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.add,
                         color: Colors.white,
                         size: 18,
                       ),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text(
-                        'Agregar',
-                        style: TextStyle(
+                        localizations.get('add'),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -949,7 +1012,7 @@ class _GameScreenState extends State<GameScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Historial',
+                    localizations.get('round_history'),
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.7),
                       fontSize: 10,

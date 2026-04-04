@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../languages/app_localizations.dart';
+import '../main.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,6 +13,10 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String _selectedBackground = 'default';
   String _selectedLanguage = 'es';
+  String _player1Name = 'Home';
+  String _player2Name = 'Jugador 1';
+  String _player3Name = 'Jugador 2';
+  String _player4Name = 'Jugador 3';
 
   final List<Map<String, dynamic>> _backgrounds = [
     {'id': 'default', 'name': 'Predeterminado', 'image': 'backgrounds/default.jpg'},
@@ -37,6 +43,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _selectedBackground = prefs.getString('background') ?? 'default';
       _selectedLanguage = prefs.getString('language') ?? 'es';
+      _player1Name = prefs.getString('player1Name') ?? 'Home';
+      _player2Name = prefs.getString('player2Name') ?? 'Jugador 1';
+      _player3Name = prefs.getString('player3Name') ?? 'Jugador 2';
+      _player4Name = prefs.getString('player4Name') ?? 'Jugador 3';
     });
   }
 
@@ -55,10 +65,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _selectedLanguage = language;
     });
+    
+    // Actualizar el idioma de la aplicación sin reiniciar
+    MyApp.setLocale(Locale(language));
+  }
+
+  Future<void> _savePlayerName(int playerNumber, String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('player${playerNumber}Name', name);
+    setState(() {
+      switch (playerNumber) {
+        case 1:
+          _player1Name = name;
+          break;
+        case 2:
+          _player2Name = name;
+          break;
+        case 3:
+          _player3Name = name;
+          break;
+        case 4:
+          _player4Name = name;
+          break;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -72,9 +108,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: 40,
             ),
             const SizedBox(width: 12),
-            const Text(
-              'CONFIGURACIÓN',
-              style: TextStyle(
+            Text(
+              localizations.get('settings'),
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -94,7 +130,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             // Selector de fondos
             _buildSection(
-              title: 'Fondo de pantalla',
+              title: localizations.get('wallpaper'),
               icon: Icons.wallpaper,
               child: Wrap(
                 spacing: 12,
@@ -219,7 +255,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             // Selector de idioma
             _buildSection(
-              title: 'Idioma',
+              title: localizations.get('language'),
               icon: Icons.language,
               child: Column(
                 children: _languages.map((lang) {
@@ -228,7 +264,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     groupValue: _selectedLanguage,
                     onChanged: (value) => _saveLanguage(value!),
                     title: Text(
-                      lang['name']!,
+                      localizations.get(lang['code'] == 'es' ? 'spanish' : 
+                                       lang['code'] == 'en' ? 'english' : 'portuguese'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontFamily: 'Poppins',
@@ -243,18 +280,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 24),
 
+            // Nombres de jugadores
+            _buildSection(
+              title: localizations.get('player_names'),
+              icon: Icons.people,
+              child: Column(
+                children: [
+                  _buildPlayerNameTile(1, _player1Name),
+                  _buildPlayerNameTile(2, _player2Name),
+                  _buildPlayerNameTile(3, _player3Name),
+                  _buildPlayerNameTile(4, _player4Name),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
             // Compartir
             _buildSection(
-              title: 'Compartir',
+              title: localizations.get('share'),
               icon: Icons.share,
               child: ListTile(
                 onTap: () {
                   // TODO: Implementar compartir
                 },
                 leading: const Icon(Icons.share, color: Color(0xFFE53935)),
-                title: const Text(
-                  'Compartir aplicación',
-                  style: TextStyle(
+                title: Text(
+                  localizations.get('share_app'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontFamily: 'Poppins',
                   ),
@@ -268,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             // Privacidad y términos
             _buildSection(
-              title: 'Legal',
+              title: localizations.get('legal'),
               icon: Icons.gavel,
               child: Column(
                 children: [
@@ -277,9 +330,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // TODO: Implementar política de privacidad
                     },
                     leading: const Icon(Icons.privacy_tip, color: Color(0xFFE53935)),
-                    title: const Text(
-                      'Política de privacidad',
-                      style: TextStyle(
+                    title: Text(
+                      localizations.get('privacy_policy'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontFamily: 'Poppins',
                       ),
@@ -292,9 +345,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // TODO: Implementar términos y condiciones
                     },
                     leading: const Icon(Icons.description, color: Color(0xFFE53935)),
-                    title: const Text(
-                      'Términos y condiciones',
-                      style: TextStyle(
+                    title: Text(
+                      localizations.get('terms_conditions'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontFamily: 'Poppins',
                       ),
@@ -307,6 +360,136 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPlayerNameTile(int playerNumber, String currentName) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          // Avatar del jugador
+          CircleAvatar(
+            backgroundColor: const Color(0xFFE53935),
+            radius: 20,
+            child: Text(
+              '$playerNumber',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Información del jugador
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  currentName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  'Jugador $playerNumber',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontFamily: 'Poppins',
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Botón de editar
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _showEditPlayerNameDialog(playerNumber, currentName),
+              borderRadius: BorderRadius.circular(8),
+              splashColor: const Color(0xFFE53935).withOpacity(0.3),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFE53935).withOpacity(0.5)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.edit,
+                  color: Color(0xFFE53935),
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditPlayerNameDialog(int playerNumber, String currentName) {
+    final controller = TextEditingController(text: currentName);
+    final localizations = AppLocalizations.of(context);
+    
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D44),
+        title: Text(
+          '${localizations.get('edit_name')} - ${localizations.get('player')} $playerNumber',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+          ),
+          decoration: InputDecoration(
+            hintText: localizations.get('enter_name'),
+            hintStyle: const TextStyle(
+              color: Colors.white24,
+              fontFamily: 'Poppins',
+            ),
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFFE53935)),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFFE53935)),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(localizations.get('cancel'), style: const TextStyle(color: Color(0xFFE53935))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                _savePlayerName(playerNumber, newName);
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+            ),
+            child: Text(localizations.get('save')),
+          ),
+        ],
       ),
     );
   }
