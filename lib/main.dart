@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:ui' as ui;
 import '../models/game_model.dart';
 import 'screens/game_screen.dart';
 import 'languages/app_localizations.dart';
@@ -45,8 +46,24 @@ class _MyAppState extends State<MyApp> {
 
   Future<Locale> _loadLocale() async {
     final prefs = await SharedPreferences.getInstance();
-    final languageCode = prefs.getString('language') ?? 'es';
-    return Locale(languageCode);
+    final savedLanguage = prefs.getString('language') ?? '';
+    
+    if (savedLanguage.isNotEmpty) {
+      // Si hay idioma guardado, usar ese
+      return Locale(savedLanguage);
+    } else {
+      // Si no hay idioma guardado, usar el del dispositivo
+      final deviceLocale = ui.window.locale;
+      String deviceLanguage = deviceLocale.languageCode;
+      
+      // Mapear idiomas del dispositivo a los soportados
+      if (['es', 'en', 'pt'].contains(deviceLanguage)) {
+        return Locale(deviceLanguage);
+      } else {
+        // Si no está soportado, usar español como por defecto
+        return Locale('es');
+      }
+    }
   }
 
   Future<DominoGame> _loadInitialGame() async {

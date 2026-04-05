@@ -1301,11 +1301,15 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
 
+    // Obtener la extensión correcta del archivo
+    String imagePath = _getBackgroundImagePath(_selectedBackground);
+    
     return Container(
       decoration: BoxDecoration(
         image: DecorationImage(
-          image: AssetImage('assets/backgrounds/$_selectedBackground.jpg'),
-          fit: BoxFit.cover,
+          image: AssetImage(imagePath),
+          fit: BoxFit.cover, // Usar cover para llenar el espacio
+          repeat: ImageRepeat.repeat, // Repetir imagen si es pequeña
         ),
       ),
       child: Container(
@@ -1314,6 +1318,64 @@ class _GameScreenState extends State<GameScreen> {
         ),
       ),
     );
+  }
+
+  String _getBackgroundImagePath(String backgroundId) {
+    // Mapear los IDs a las rutas correctas de archivo
+    switch (backgroundId) {
+      case 'cuban_flag':
+        return 'assets/backgrounds/A0iScru-cuban-flag-wallpaper.jpg';
+      case 'spanish_flag':
+        return 'assets/backgrounds/E3oulkw-spanish-flag-wallpaper.jpg';
+      case 'colombian_flag':
+        return 'assets/backgrounds/wp11025257-colombian-flag-wallpapers.jpg';
+      case 'mexican_flag':
+        return 'assets/backgrounds/wp15254308-flag-of-mexico-wallpapers.jpg';
+      case 'puerto_rico_flag':
+        return 'assets/backgrounds/wp2465860-puerto-rico-flag-wallpapers.png';
+      case 'panama_flag':
+        return 'assets/backgrounds/wp3607255-panama-flag-wallpapers.jpg';
+      case 'venezuela_flag':
+        return 'assets/backgrounds/wp4209041-venezuela-flag-wallpapers.jpg';
+      case 'costa_rica_flag':
+        return 'assets/backgrounds/wp4209288-costa-rica-flag-wallpapers.jpg';
+      case 'ecuador_flag':
+        return 'assets/backgrounds/wp4209455-ecuador-flag-wallpapers.jpg';
+      case 'dominican_flag':
+        return 'assets/backgrounds/wp4209528-dominican-republic-flag-wallpapers.jpg';
+      case 'jamaican':
+        return 'assets/backgrounds/eN2cTld-jamaican-wallpaper.jpg';
+      case 'nicaragua':
+        return 'assets/backgrounds/wp2231756-nicaragua-wallpapers.jpg';
+      case 'italian':
+        return 'assets/backgrounds/wp6493991-phone-italian-wallpapers.jpg';
+      case 'wine':
+        return 'assets/backgrounds/wp15058984-4k-wine-wallpapers.webp';
+      case 'gangster_money':
+        return 'assets/backgrounds/wp13311949-gangster-money-wallpapers.jpg';
+      case 'portuguese_dog_1':
+        return 'assets/backgrounds/wp5473857-portuguese-water-dog-wallpapers.jpg';
+      case 'portuguese_dog_2':
+        return 'assets/backgrounds/wp5473896-portuguese-water-dog-wallpapers.jpg';
+      case 'blue_label':
+        return 'assets/backgrounds/wp9536291-blue-label-wallpapers.jpg';
+      case 'abstract_1':
+        return 'assets/backgrounds/uwp3683989.jpeg';
+      case 'abstract_2':
+        return 'assets/backgrounds/uwp4318756.jpeg';
+      case 'abstract_3':
+        return 'assets/backgrounds/uwp4957374.jpeg';
+      case 'abstract_4':
+        return 'assets/backgrounds/uwp4957375.jpeg';
+      case 'abstract_5':
+        return 'assets/backgrounds/uwp4998270.jpeg';
+      case 'abstract_6':
+        return 'assets/backgrounds/uwp5000378.jpeg';
+      case 'abstract_7':
+        return 'assets/backgrounds/uwp5000914.jpeg';
+      default:
+        return 'assets/backgrounds/default.jpg';
+    }
   }
 
   @override

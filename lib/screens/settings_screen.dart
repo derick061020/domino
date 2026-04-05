@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../languages/app_localizations.dart';
 import '../main.dart';
@@ -17,13 +18,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _player2Name = 'Jugador 1';
   String _player3Name = 'Jugador 2';
   String _player4Name = 'Jugador 3';
+  bool _showAllBackgrounds = false;
 
   final List<Map<String, dynamic>> _backgrounds = [
-    {'id': 'default', 'name': 'Predeterminado', 'image': 'backgrounds/default.jpg'},
-    {'id': 'images', 'name': 'República Dominicana', 'image': 'backgrounds/images.jpeg'},
-    {'id': 'cards', 'name': 'Cartas', 'image': 'backgrounds/cards.jpg'},
-    {'id': 'dark', 'name': 'Oscuro', 'image': 'backgrounds/dark.jpg'},
-    {'id': 'wood', 'name': 'Madera', 'image': 'backgrounds/wood.jpg'},
+    {'id': 'default', 'name': 'Default', 'image': 'backgrounds/default.jpg'},
+    {'id': 'cuban_flag', 'name': 'Cuba', 'image': 'backgrounds/A0iScru-cuban-flag-wallpaper.jpg'},
+    {'id': 'spanish_flag', 'name': 'España', 'image': 'backgrounds/E3oulkw-spanish-flag-wallpaper.jpg'},
+    {'id': 'colombian_flag', 'name': 'Colombia', 'image': 'backgrounds/wp11025257-colombian-flag-wallpapers.jpg'},
+    {'id': 'mexican_flag', 'name': 'México', 'image': 'backgrounds/wp15254308-flag-of-mexico-wallpapers.jpg'},
+    {'id': 'puerto_rico_flag', 'name': 'Puerto Rico', 'image': 'backgrounds/wp2465860-puerto-rico-flag-wallpapers.png'},
+    {'id': 'panama_flag', 'name': 'Panamá', 'image': 'backgrounds/wp3607255-panama-flag-wallpapers.jpg'},
+    {'id': 'venezuela_flag', 'name': 'Venezuela', 'image': 'backgrounds/wp4209041-venezuela-flag-wallpapers.jpg'},
+    {'id': 'costa_rica_flag', 'name': 'Costa Rica', 'image': 'backgrounds/wp4209288-costa-rica-flag-wallpapers.jpg'},
+    {'id': 'ecuador_flag', 'name': 'Ecuador', 'image': 'backgrounds/wp4209455-ecuador-flag-wallpapers.jpg'},
+    {'id': 'dominican_flag', 'name': 'Rep. Dominicana', 'image': 'backgrounds/wp4209528-dominican-republic-flag-wallpapers.jpg'},
+    {'id': 'jamaican', 'name': 'Jamaica', 'image': 'backgrounds/eN2cTld-jamaican-wallpaper.jpg'},
+    {'id': 'nicaragua', 'name': 'Nicaragua', 'image': 'backgrounds/wp2231756-nicaragua-wallpapers.jpg'},
+    {'id': 'italian', 'name': 'Italia', 'image': 'backgrounds/wp6493991-phone-italian-wallpapers.jpg'},
+    {'id': 'abstract_1', 'name': 'Abstracto 1', 'image': 'backgrounds/uwp3683989.jpeg'},
+    {'id': 'abstract_2', 'name': 'Abstracto 2', 'image': 'backgrounds/uwp4318756.jpeg'},
+    {'id': 'abstract_3', 'name': 'Abstracto 3', 'image': 'backgrounds/uwp4957374.jpeg'},
+    {'id': 'abstract_4', 'name': 'Abstracto 4', 'image': 'backgrounds/uwp4957375.jpeg'},
+    {'id': 'abstract_5', 'name': 'Abstracto 5', 'image': 'backgrounds/uwp4998270.jpeg'},
+    {'id': 'abstract_6', 'name': 'Abstracto 6', 'image': 'backgrounds/uwp5000378.jpeg'},
+    {'id': 'abstract_7', 'name': 'Abstracto 7', 'image': 'backgrounds/uwp5000914.jpeg'},
+    {'id': 'gangster_money', 'name': 'Gangster Money', 'image': 'backgrounds/wp13311949-gangster-money-wallpapers.jpg'},
+    {'id': 'wine', 'name': 'Vino', 'image': 'backgrounds/wp15058984-4k-wine-wallpapers.webp'},
+    {'id': 'portuguese_dog_1', 'name': 'Perro Portugués 1', 'image': 'backgrounds/wp5473857-portuguese-water-dog-wallpapers.jpg'},
+    {'id': 'portuguese_dog_2', 'name': 'Perro Portugués 2', 'image': 'backgrounds/wp5473896-portuguese-water-dog-wallpapers.jpg'},
+    {'id': 'blue_label', 'name': 'Blue Label', 'image': 'backgrounds/wp9536291-blue-label-wallpapers.jpg'},
   ];
 
   final List<Map<String, String>> _languages = [
@@ -40,9 +63,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    
+    // Obtener idioma guardado o usar el idioma del dispositivo
+    String savedLanguage = prefs.getString('language') ?? '';
+    String deviceLanguage = 'es'; // valor por defecto
+    
+    if (savedLanguage.isEmpty) {
+      // Si no hay idioma guardado, usar el del dispositivo
+      final deviceLocale = ui.window.locale;
+      deviceLanguage = deviceLocale.languageCode;
+      
+      // Mapear idiomas del dispositivo a los soportados
+      if (['es', 'en', 'pt'].contains(deviceLanguage)) {
+        // Usar el idioma del dispositivo si está soportado
+      } else {
+        // Si no está soportado, usar español como por defecto
+        deviceLanguage = 'es';
+      }
+    }
+    
     setState(() {
       _selectedBackground = prefs.getString('background') ?? 'default';
-      _selectedLanguage = prefs.getString('language') ?? 'es';
+      _selectedLanguage = savedLanguage.isNotEmpty ? savedLanguage : deviceLanguage;
       _player1Name = prefs.getString('player1Name') ?? 'Home';
       _player2Name = prefs.getString('player2Name') ?? 'Jugador 1';
       _player3Name = prefs.getString('player3Name') ?? 'Jugador 2';
@@ -57,6 +99,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _selectedBackground = background;
     });
+    
+    // Navegar a la pantalla de juego después de seleccionar fondo
+    Navigator.of(context).pop();
   }
 
   Future<void> _saveLanguage(String language) async {
@@ -132,122 +177,177 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildSection(
               title: localizations.get('wallpaper'),
               icon: Icons.wallpaper,
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: _backgrounds.map((bg) {
-                  final isSelected = _selectedBackground == bg['id'];
-                  return GestureDetector(
-                    onTap: () => _saveBackground(bg['id']!),
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? const Color(0xFFE53935) : Colors.grey,
-                          width: isSelected ? 3 : 1,
-                        ),
-                      ),
-                      child: Stack(
-                        children: [
-                          // Fondo de imagen o color por defecto
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(9),
-                              color: Colors.grey[800],
+              child: Column(
+                children: [
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 1.0,
+                    ),
+                    itemCount: _showAllBackgrounds ? _backgrounds.length : 9, // Mostrar solo 9 inicialmente
+                    itemBuilder: (context, index) {
+                      final bg = _backgrounds[index];
+                      final isSelected = _selectedBackground == bg['id'];
+                      return GestureDetector(
+                        onTap: () => _saveBackground(bg['id']!),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected ? const Color(0xFFE53935) : Colors.grey,
+                              width: isSelected ? 3 : 1,
                             ),
-                            child: bg['id'] == 'default'
-                                ? Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(9),
-                                      gradient: const LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Color(0xFF1E1E2E),
-                                          Color(0xFF2D2D44),
-                                        ],
+                          ),
+                          child: Stack(
+                            children: [
+                              // Fondo de imagen o color por defecto
+                              Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(9),
+                                  color: Colors.grey[800],
+                                ),
+                                child: bg['id'] == 'default'
+                                    ? Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(9),
+                                          gradient: const LinearGradient(
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                            colors: [
+                                              Color(0xFF1E1E2E),
+                                              Color(0xFF2D2D44),
+                                            ],
+                                          ),
+                                        ),
+                                      )
+                                    : ClipRRect(
+                                        borderRadius: BorderRadius.circular(9),
+                                        child: Image.asset(
+                                          'assets/${bg['image']}',
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container(
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(9),
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.bottomCenter,
+                                                  colors: [
+                                                    Colors.grey[800]!,
+                                                    Colors.grey[900]!,
+                                                  ],
+                                                ),
+                                              ),
+                                              child: Icon(
+                                                Icons.image,
+                                                color: Colors.grey[600],
+                                                size: 40,
+                                              ),
+                                            );
+                                          },
+                                        ),
                                       ),
+                              ),
+                              // Indicador de selección
+                              if (isSelected)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFE53935),
+                                      shape: BoxShape.circle,
                                     ),
-                                  )
-                                : ClipRRect(
-                                    borderRadius: BorderRadius.circular(9),
-                                    child: Image.asset(
-                                      'assets/${bg['image']}',
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(9),
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Colors.grey[800]!,
-                                                Colors.grey[900]!,
-                                              ],
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            Icons.image,
-                                            color: Colors.grey[600],
-                                            size: 40,
-                                          ),
-                                        );
-                                      },
+                                    child: const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 16,
                                     ),
                                   ),
+                                ),
+                              // Nombre del fondo
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  decoration: BoxDecoration(
+                                    borderRadius: const BorderRadius.only(
+                                      bottomLeft: Radius.circular(9),
+                                      bottomRight: Radius.circular(9),
+                                    ),
+                                    color: Colors.black.withOpacity(0.7),
+                                  ),
+                                  child: Text(
+                                    bg['name']!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontFamily: 'Poppins',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          // Indicador de selección
-                          if (isSelected)
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Container(
-                                width: 24,
-                                height: 24,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFE53935),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.check,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  // Botón de Ver todos/Mostrar menos
+                  if (_backgrounds.length > 9)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showAllBackgrounds = !_showAllBackgrounds;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE53935).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFFE53935).withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _showAllBackgrounds 
+                                  ? localizations.get('show_less') 
+                                  : localizations.get('see_all'),
+                              style: const TextStyle(
+                                color: Color(0xFFE53935),
+                                fontSize: 14,
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                          // Nombre del fondo
-                          Positioned(
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              decoration: BoxDecoration(
-                                borderRadius: const BorderRadius.only(
-                                  bottomLeft: Radius.circular(9),
-                                  bottomRight: Radius.circular(9),
-                                ),
-                                color: Colors.black.withOpacity(0.7),
-                              ),
-                              child: Text(
-                                bg['name']!,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontFamily: 'Poppins',
-                                ),
-                              ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              _showAllBackgrounds ? Icons.expand_less : Icons.expand_more,
+                              color: const Color(0xFFE53935),
+                              size: 20,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  );
-                }).toList(),
+                ],
               ),
             ),
 

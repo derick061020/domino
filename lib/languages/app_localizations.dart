@@ -45,6 +45,8 @@ class AppLocalizations {
     // Settings Screen
     'wallpaper': 'Fondo de pantalla',
     'default': 'Predeterminado',
+    'see_all': 'Ver todos',
+    'show_less': 'Mostrar menos',
     'language': 'Idioma',
     'player_names': 'Nombres de jugadores',
     'share': 'Compartir',
@@ -90,6 +92,8 @@ class AppLocalizations {
     // Settings Screen
     'wallpaper': 'Wallpaper',
     'default': 'Default',
+    'see_all': 'See All',
+    'show_less': 'Show Less',
     'language': 'Language',
     'player_names': 'Player Names',
     'share': 'Share',
@@ -135,6 +139,8 @@ class AppLocalizations {
     // Settings Screen
     'wallpaper': 'Papel de parede',
     'default': 'Padrão',
+    'see_all': 'Ver todos',
+    'show_less': 'Mostrar menos',
     'language': 'Idioma',
     'player_names': 'Nomes dos jogadores',
     'share': 'Compartilhar',
