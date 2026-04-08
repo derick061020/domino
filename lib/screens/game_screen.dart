@@ -894,119 +894,105 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildPlayerSection(int playerNumber, String playerName, int score) {
     final localizations = AppLocalizations.of(context);
-    
+    final rounds = playerNumber == 1
+        ? _currentGame.player1Rounds
+        : playerNumber == 2
+            ? _currentGame.player2Rounds
+            : playerNumber == 3
+                ? _currentGame.player3Rounds
+                : _currentGame.player4Rounds;
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // Nombre del jugador con botón de editar
+          // Nombre del jugador + editar (compacto)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                playerName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Poppins',
+              Flexible(
+                child: Text(
+                  playerName,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              // Botón de editar nombre
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => _showEditPlayerNameDialog(playerNumber, playerName),
-                  borderRadius: BorderRadius.circular(4),
-                  splashColor: const Color(0xFFE53935).withOpacity(0.3),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFE53935).withOpacity(0.5)),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Icon(
-                      Icons.edit,
-                      color: Color(0xFFE53935),
-                      size: 16,
-                    ),
-                  ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => _showEditPlayerNameDialog(playerNumber, playerName),
+                child: const Icon(
+                  Icons.edit,
+                  color: Color(0xFFE53935),
+                  size: 14,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          // Puntuación (más pequeña)
+          const SizedBox(height: 4),
+          // Puntuación
           Text(
             '$score',
             style: const TextStyle(
               color: Color(0xFFE53935),
-              fontSize: 32,
+              fontSize: 26,
               fontWeight: FontWeight.bold,
               fontFamily: 'Poppins',
+              height: 1.1,
             ),
           ),
-          Text(
-            localizations.get('points'),
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 12,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Botón de agregar puntos (más pequeño)
-          GestureDetector(
-            onTap: () => _showAddPointsDialog(playerNumber),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _showAddPointsDialog(playerNumber),
-                borderRadius: BorderRadius.circular(8),
-                splashColor: Colors.white.withOpacity(0.3),
-                highlightColor: const Color(0xFFE53935).withOpacity(0.5),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE53935),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.add,
+          const SizedBox(height: 6),
+          // Botón de agregar puntos (compacto)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _showAddPointsDialog(playerNumber),
+              borderRadius: BorderRadius.circular(6),
+              splashColor: Colors.white.withOpacity(0.3),
+              highlightColor: const Color(0xFFE53935).withOpacity(0.5),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE53935),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.add, color: Colors.white, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      localizations.get('add'),
+                      style: const TextStyle(
                         color: Colors.white,
-                        size: 18,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        localizations.get('add'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          // Historial de rondas del jugador (con scroll)
+          const SizedBox(height: 8),
+          // Historial de rondas - GRANDE y visible
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: const Color(0xFFE53935).withOpacity(0.4),
+                  width: 1.5,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1014,47 +1000,70 @@ class _GameScreenState extends State<GameScreen> {
                   Text(
                     localizations.get('round_history'),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 10,
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
                       fontFamily: 'Poppins',
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Expanded(
                     child: ListView.builder(
-                      itemCount: playerNumber == 1 
-                          ? _currentGame.player1Rounds.length
-                          : playerNumber == 2
-                              ? _currentGame.player2Rounds.length
-                              : playerNumber == 3
-                                  ? _currentGame.player3Rounds.length
-                                  : playerNumber == 4
-                                      ? _currentGame.player4Rounds.length
-                                      : 0,
+                      itemCount: rounds.length,
                       itemBuilder: (context, index) {
-                        final points = playerNumber == 1
-                            ? _currentGame.player1Rounds[index]
-                            : playerNumber == 2
-                                ? _currentGame.player2Rounds[index]
-                                : playerNumber == 3
-                                    ? _currentGame.player3Rounds[index]
-                                    : playerNumber == 4
-                                        ? _currentGame.player4Rounds[index]
-                                        : 0;
+                        final points = rounds[index];
                         return Container(
-                          margin: const EdgeInsets.only(bottom: 2),
-                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 6),
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE53935).withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(3),
+                            color: points > 0
+                                ? const Color(0xFFE53935).withOpacity(0.25)
+                                : Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text(
-                            points > 0 ? '+$points' : '-',
-                            style: const TextStyle(
-                              color: Color(0xFFE53935),
-                              fontSize: 10,
-                              fontFamily: 'Poppins',
-                            ),
+                          child: Row(
+                            children: [
+                              // Número de ronda
+                              Text(
+                                'R${index + 1}',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontSize: 13,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Puntos
+                              Expanded(
+                                child: Text(
+                                  points > 0 ? '+$points' : '-',
+                                  style: TextStyle(
+                                    color: points > 0
+                                        ? const Color(0xFFE53935)
+                                        : Colors.white.withOpacity(0.4),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                              ),
+                              // Botón eliminar
+                              GestureDetector(
+                                onTap: () => _deleteRound(index),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: Color(0xFFE53935),
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -1266,13 +1275,13 @@ class _GameScreenState extends State<GameScreen> {
       setState(() {
         final p1Rounds = List<int>.from(_currentGame.player1Rounds);
         final p2Rounds = List<int>.from(_currentGame.player2Rounds);
-        
+
         if (p2Rounds.length > p1Rounds.length) {
           p2Rounds.removeLast();
         } else if (p1Rounds.isNotEmpty) {
           p1Rounds.removeLast();
         }
-        
+
         _currentGame = _currentGame.copyWith(
           player1Rounds: p1Rounds,
           player2Rounds: p2Rounds,
@@ -1281,6 +1290,29 @@ class _GameScreenState extends State<GameScreen> {
       });
       _saveGame();
     }
+  }
+
+  void _deleteRound(int roundIndex) {
+    setState(() {
+      final p1Rounds = List<int>.from(_currentGame.player1Rounds);
+      final p2Rounds = List<int>.from(_currentGame.player2Rounds);
+      final p3Rounds = List<int>.from(_currentGame.player3Rounds);
+      final p4Rounds = List<int>.from(_currentGame.player4Rounds);
+
+      if (roundIndex < p1Rounds.length) p1Rounds.removeAt(roundIndex);
+      if (roundIndex < p2Rounds.length) p2Rounds.removeAt(roundIndex);
+      if (roundIndex < p3Rounds.length) p3Rounds.removeAt(roundIndex);
+      if (roundIndex < p4Rounds.length) p4Rounds.removeAt(roundIndex);
+
+      _currentGame = _currentGame.copyWith(
+        player1Rounds: p1Rounds,
+        player2Rounds: p2Rounds,
+        player3Rounds: p3Rounds,
+        player4Rounds: p4Rounds,
+        lastPlayed: DateTime.now(),
+      );
+    });
+    _saveGame();
   }
 
   Widget _buildBackground() {
