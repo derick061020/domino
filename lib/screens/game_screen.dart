@@ -879,6 +879,13 @@ class _GameScreenState extends State<GameScreen> {
                 ? _currentGame.player3Rounds
                 : _currentGame.player4Rounds;
 
+    final scrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (scrollController.hasClients && scrollController.position.maxScrollExtent > 0) {
+        scrollController.jumpTo(scrollController.position.maxScrollExtent);
+      }
+    });
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Column(
@@ -912,15 +919,22 @@ class _GameScreenState extends State<GameScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          // Puntuación
-          Text(
-            '$score',
-            style: const TextStyle(
-              color: Color(0xFFE53935),
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Poppins',
-              height: 1.1,
+          // Puntuación con fondo negro translúcido
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$score',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+                height: 1.1,
+              ),
             ),
           ),
           const SizedBox(height: 6),
@@ -986,6 +1000,7 @@ class _GameScreenState extends State<GameScreen> {
                   const SizedBox(height: 6),
                   Expanded(
                     child: ListView.builder(
+                      controller: scrollController,
                       itemCount: rounds.length,
                       itemBuilder: (context, index) {
                         final points = rounds[index];
@@ -993,9 +1008,7 @@ class _GameScreenState extends State<GameScreen> {
                           margin: const EdgeInsets.only(bottom: 4),
                           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
                           decoration: BoxDecoration(
-                            color: points > 0
-                                ? const Color(0xFFE53935).withOpacity(0.25)
-                                : Colors.white.withOpacity(0.05),
+                            color: Colors.black.withOpacity(0.4),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
@@ -1016,7 +1029,7 @@ class _GameScreenState extends State<GameScreen> {
                                   points > 0 ? '+$points' : '-',
                                   style: TextStyle(
                                     color: points > 0
-                                        ? const Color(0xFFE53935)
+                                        ? Colors.white
                                         : Colors.white.withOpacity(0.4),
                                     fontSize: 26,
                                     fontWeight: FontWeight.bold,
