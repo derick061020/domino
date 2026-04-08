@@ -59,6 +59,44 @@ class _GameScreenState extends State<GameScreen> {
     setState(() => _isLoading = false);
   }
 
+  void _addPointsToPlayer(int player, int points) {
+    setState(() {
+      final newPlayer1Rounds = [..._currentGame.player1Rounds];
+      final newPlayer2Rounds = [..._currentGame.player2Rounds];
+      final newPlayer3Rounds = [..._currentGame.player3Rounds];
+      final newPlayer4Rounds = [..._currentGame.player4Rounds];
+
+      // Buscar si la última ronda tiene 0 para este jugador (ronda incompleta)
+      final lastIndex = newPlayer1Rounds.length - 1;
+      final playerRounds = player == 1
+          ? newPlayer1Rounds
+          : player == 2
+              ? newPlayer2Rounds
+              : player == 3
+                  ? newPlayer3Rounds
+                  : newPlayer4Rounds;
+
+      if (lastIndex >= 0 && playerRounds[lastIndex] == 0) {
+        // Actualizar la ronda existente
+        playerRounds[lastIndex] = points;
+      } else {
+        // Crear nueva ronda
+        newPlayer1Rounds.add(player == 1 ? points : 0);
+        newPlayer2Rounds.add(player == 2 ? points : 0);
+        newPlayer3Rounds.add(player == 3 ? points : 0);
+        newPlayer4Rounds.add(player == 4 ? points : 0);
+      }
+
+      _currentGame = _currentGame.copyWith(
+        player1Rounds: newPlayer1Rounds,
+        player2Rounds: newPlayer2Rounds,
+        player3Rounds: newPlayer3Rounds,
+        player4Rounds: newPlayer4Rounds,
+        lastPlayed: DateTime.now(),
+      );
+    });
+  }
+
   void _showAddPointsDialog(int player) {
     final controller = TextEditingController();
     final localizations = AppLocalizations.of(context);
@@ -135,31 +173,9 @@ class _GameScreenState extends State<GameScreen> {
             onPressed: () async {
               final points = int.tryParse(controller.text);
               if (points != null && points > 0) {
-                setState(() {
-                  // Crear nueva ronda sincronizada para todos los jugadores
-                  final newPlayer1Rounds = [..._currentGame.player1Rounds];
-                  final newPlayer2Rounds = [..._currentGame.player2Rounds];
-                  final newPlayer3Rounds = [..._currentGame.player3Rounds];
-                  final newPlayer4Rounds = [..._currentGame.player4Rounds];
-                  
-                  // Agregar puntos al jugador seleccionado y 0 a los demás
-                  newPlayer1Rounds.add(player == 1 ? points : 0);
-                  newPlayer2Rounds.add(player == 2 ? points : 0);
-                  newPlayer3Rounds.add(player == 3 ? points : 0);
-                  newPlayer4Rounds.add(player == 4 ? points : 0);
-                  
-                  _currentGame = _currentGame.copyWith(
-                    player1Rounds: newPlayer1Rounds,
-                    player2Rounds: newPlayer2Rounds,
-                    player3Rounds: newPlayer3Rounds,
-                    player4Rounds: newPlayer4Rounds,
-                    lastPlayed: DateTime.now(),
-                  );
-                });
+                _addPointsToPlayer(player, points);
                 await _saveGame();
                 Navigator.pop(context);
-                
-                // Verificar condición de victoria después de cerrar el popup
                 _checkWinCondition();
               }
             },
@@ -171,51 +187,12 @@ class _GameScreenState extends State<GameScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () async {
-                  final points = int.tryParse(controller.text);
-                  if (points != null && points > 0) {
-                    setState(() {
-                      // Crear nueva ronda sincronizada para todos los jugadores
-                      final newPlayer1Rounds = [..._currentGame.player1Rounds];
-                      final newPlayer2Rounds = [..._currentGame.player2Rounds];
-                      final newPlayer3Rounds = [..._currentGame.player3Rounds];
-                      final newPlayer4Rounds = [..._currentGame.player4Rounds];
-                      
-                      // Agregar puntos al jugador seleccionado y 0 a los demás
-                      newPlayer1Rounds.add(player == 1 ? points : 0);
-                      newPlayer2Rounds.add(player == 2 ? points : 0);
-                      newPlayer3Rounds.add(player == 3 ? points : 0);
-                      newPlayer4Rounds.add(player == 4 ? points : 0);
-                      
-                      _currentGame = _currentGame.copyWith(
-                        player1Rounds: newPlayer1Rounds,
-                        player2Rounds: newPlayer2Rounds,
-                        player3Rounds: newPlayer3Rounds,
-                        player4Rounds: newPlayer4Rounds,
-                        lastPlayed: DateTime.now(),
-                      );
-                    });
-                    await _saveGame();
-                    Navigator.pop(context);
-                    
-                    // Verificar condición de victoria después de cerrar el popup
-                    _checkWinCondition();
-                  }
-                },
-                borderRadius: BorderRadius.circular(8),
-                splashColor: Colors.white.withOpacity(0.3),
-                highlightColor: const Color(0xFFE53935).withOpacity(0.2),
-                child: Text(
-                  localizations.get('add'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
+            child: Text(
+              localizations.get('add'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
               ),
             ),
           ),
@@ -1041,7 +1018,7 @@ class _GameScreenState extends State<GameScreen> {
                                     color: points > 0
                                         ? const Color(0xFFE53935)
                                         : Colors.white.withOpacity(0.4),
-                                    fontSize: 16,
+                                    fontSize: 26,
                                     fontWeight: FontWeight.bold,
                                     fontFamily: 'Poppins',
                                   ),
