@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
 import 'dart:io';
 import 'dart:math';
@@ -21,18 +20,8 @@ class DominoDetectionResult {
 class DominoVisionService {
   final ImagePicker _imagePicker = ImagePicker();
 
-  Future<bool> requestCameraPermission() async {
-    final status = await Permission.camera.request();
-    return status.isGranted;
-  }
-
   Future<String?> captureImage() async {
     try {
-      final hasPermission = await requestCameraPermission();
-      if (!hasPermission) {
-        throw Exception('Camera permission denied');
-      }
-
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.rear,
