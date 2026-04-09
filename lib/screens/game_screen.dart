@@ -1,7 +1,9 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_model.dart';
 import '../services/game_service.dart';
+import '../services/domino_vision_service.dart';
 import '../languages/app_localizations.dart';
 import 'settings_screen.dart';
 import 'history_screen.dart';
@@ -17,6 +19,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   final GameService _gameService = GameService();
+  final DominoVisionService _visionService = DominoVisionService();
   late DominoGame _currentGame;
   bool _isLoading = false;
   String _selectedBackground = 'default';
@@ -66,26 +69,11 @@ class _GameScreenState extends State<GameScreen> {
       final newPlayer3Rounds = [..._currentGame.player3Rounds];
       final newPlayer4Rounds = [..._currentGame.player4Rounds];
 
-      // Buscar si la última ronda tiene 0 para este jugador (ronda incompleta)
-      final lastIndex = newPlayer1Rounds.length - 1;
-      final playerRounds = player == 1
-          ? newPlayer1Rounds
-          : player == 2
-              ? newPlayer2Rounds
-              : player == 3
-                  ? newPlayer3Rounds
-                  : newPlayer4Rounds;
-
-      if (lastIndex >= 0 && playerRounds[lastIndex] == 0) {
-        // Actualizar la ronda existente
-        playerRounds[lastIndex] = points;
-      } else {
-        // Crear nueva ronda
-        newPlayer1Rounds.add(player == 1 ? points : 0);
-        newPlayer2Rounds.add(player == 2 ? points : 0);
-        newPlayer3Rounds.add(player == 3 ? points : 0);
-        newPlayer4Rounds.add(player == 4 ? points : 0);
-      }
+      // Siempre crear una nueva ronda para cada puntaje agregado
+      newPlayer1Rounds.add(player == 1 ? points : 0);
+      newPlayer2Rounds.add(player == 2 ? points : 0);
+      newPlayer3Rounds.add(player == 3 ? points : 0);
+      newPlayer4Rounds.add(player == 4 ? points : 0);
 
       _currentGame = _currentGame.copyWith(
         player1Rounds: newPlayer1Rounds,
@@ -221,115 +209,26 @@ class _GameScreenState extends State<GameScreen> {
   void _showGameFinishedDialog() {
     final localizations = AppLocalizations.of(context);
     final winner = _currentGame.winner;
-    
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF2D2D44),
-        title: Text(
-          '🎉 ${localizations.get('game_over')} 🎉',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-            fontFamily: 'Poppins',
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE53935).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    winner == 'Empate' ? localizations.get('tie') : '¡$winner ${localizations.get('winner')}!',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFE53935),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    winner == 'Empate' ? localizations.get('no_winner') : '${localizations.get('reached_points')} $_maxPoints',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              localizations.get('final_score'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Poppins',
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${_currentGame.player1Name}: ${_currentGame.player1Score} ${localizations.get('points')}\n${_currentGame.player2Name}: ${_currentGame.player2Score} ${localizations.get('points')}${_currentGame.player3Score > 0 ? '\n${_currentGame.player3Name}: ${_currentGame.player3Score} ${localizations.get('points')}' : ''}${_currentGame.player4Score > 0 ? '\n${_currentGame.player4Name}: ${_currentGame.player4Score} ${localizations.get('points')}' : ''}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFFE53935),
-                fontSize: 16,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => _resetAndStartNewGame(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE53935),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              elevation: 4,
-              shadowColor: const Color(0xFFE53935).withOpacity(0.3),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _resetAndStartNewGame(),
-                borderRadius: BorderRadius.circular(8),
-                splashColor: Colors.white.withOpacity(0.3),
-                highlightColor: Colors.white.withOpacity(0.2),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  child: Text(
-                    localizations.get('restart'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        pageBuilder: (context, animation, _) {
+          return _VictoryScreen(
+            winner: winner,
+            isTie: winner == 'Empate',
+            localizations: localizations,
+            maxPoints: _maxPoints,
+            game: _currentGame,
+            onRestart: () => _resetAndStartNewGame(),
+          );
+        },
+        transitionsBuilder: (context, animation, _, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 500),
       ),
     ).then((_) {
-      // Se ejecuta cuando el popup de victoria se cierra por cualquier motivo
       _saveAndResetGame();
     });
   }
@@ -1090,6 +989,13 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
           ),
+          // Cámara - Solo para 2 jugadores
+          if (_playerCount == 2)
+            _buildBottomBarItem(
+              icon: Icons.camera_alt,
+              label: 'Escanear',
+              onTap: () => _captureAndDetectPoints(),
+            ),
           // Reiniciar
           _buildBottomBarItem(
             icon: Icons.refresh,
@@ -1215,28 +1121,35 @@ class _GameScreenState extends State<GameScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D44),
         title: const Text(
-          'Premium',
+          'DOMINO SCORE PREMIUM',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontFamily: 'Poppins',
           ),
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.star,
               color: Color(0xFFE53935),
-              size: 48,
+              size: 60,
             ),
-            SizedBox(height: 16),
-            Text(
-              'Funciones Premium',
+            const SizedBox(height: 16),
+            const Text(
+              'Desbloquea funciones premium:',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                fontFamily: 'Poppins',
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '· Sin anuncios\n· Estadísticas avanzadas\n· Personalización completa\n· Respaldo en la nube',
+              style: TextStyle(
+                color: Colors.white70,
                 fontFamily: 'Poppins',
               ),
             ),
@@ -1464,4 +1377,775 @@ class _GameScreenState extends State<GameScreen> {
       ),
     );
   }
+
+  Future<void> _showPlayerSelectionDialog(DominoDetectionResult result) async {
+    if (result.detectedPoints.isEmpty) return;
+
+    // Si solo hay un valor de puntos, asignarlo directamente
+    if (result.detectedPoints.length == 1) {
+      final points = result.detectedPoints.first;
+      final selectedPlayer = await _showSinglePointSelectionDialog(points);
+      if (selectedPlayer != null) {
+        _addPointsToPlayer(selectedPlayer, points);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Puntos asignados: ${_getPlayerName(selectedPlayer)}: $points'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Si hay múltiples valores de puntos, mostrar diálogo para seleccionar
+    final selectedData = await showDialog<Map<String, int>>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D44),
+        title: Row(
+          children: [
+            const Icon(Icons.calculate, color: Color(0xFFE53935), size: 24),
+            const SizedBox(width: 8),
+            const Text(
+              'Asignar Puntos',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE53935).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE53935).withOpacity(0.3)),
+                ),
+                child: Text(
+                  result.analysisInfo,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Selecciona los puntos y el jugador:',
+                style: TextStyle(color: Colors.white70, fontFamily: 'Poppins'),
+              ),
+              const SizedBox(height: 16),
+              ...result.detectedPoints.asMap().entries.map((entry) {
+                final index = entry.key;
+                final points = entry.value;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFFE53935).withOpacity(0.5),
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    title: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE53935),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'P${index + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '$points puntos',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: const Text(
+                      'Asignar a jugador',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    trailing: PopupMenuButton<int>(
+                      icon: const Icon(Icons.person_add, color: Color(0xFFE53935)),
+                      color: const Color(0xFF2D2D44),
+                      onSelected: (player) {
+                        Navigator.of(context).pop({
+                          'player': player, 
+                          'points': points
+                        });
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(value: 1, child: Text(_getPlayerName(1))),
+                        if (_playerCount >= 2) PopupMenuItem(value: 2, child: Text(_getPlayerName(2))),
+                        if (_playerCount >= 3) PopupMenuItem(value: 3, child: Text(_getPlayerName(3))),
+                        if (_playerCount >= 4) PopupMenuItem(value: 4, child: Text(_getPlayerName(4))),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedData != null) {
+      final player = selectedData['player'] as int;
+      final points = selectedData['points'] as int;
+      _addPointsToPlayer(player, points);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Puntos asignados: ${_getPlayerName(player)}: $points'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  Future<int?> _showSinglePointSelectionDialog(int points) async {
+    return await showDialog<int>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D44),
+        title: Text(
+          'Asignar $points puntos',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Poppins',
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Selecciona el jugador:',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            ...[1, 2, 3, 4].where((p) => p <= _playerCount).map((player) => ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              leading: CircleAvatar(
+                backgroundColor: const Color(0xFFE53935),
+                child: Text(
+                  '$player',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              title: Text(
+                _getPlayerName(player), 
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onTap: () => Navigator.of(context).pop(player),
+            )),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  
+  String _getPlayerName(int player) {
+    switch (player) {
+      case 1:
+        return _currentGame.player1Name;
+      case 2:
+        return _currentGame.player2Name;
+      case 3:
+        return _currentGame.player3Name;
+      case 4:
+        return _currentGame.player4Name;
+      default:
+        return 'Jugador $player';
+    }
+  }
+
+  Future<void> _captureAndDetectPoints() async {
+    try {
+      // Mostrar diálogo de opciones
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: const Color(0xFF2D2D44),
+          title: const Text(
+            'Escanear Puntos',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                leading: Icon(Icons.camera_alt, color: Color(0xFFE53935)),
+                title: Text('Tomar foto', style: TextStyle(color: Colors.white)),
+                subtitle: Text('Usa la cámara para capturar los puntos', style: TextStyle(color: Colors.white70)),
+              ),
+              const ListTile(
+                leading: Icon(Icons.photo_library, color: Color(0xFFE53935)),
+                title: Text('Galería', style: TextStyle(color: Colors.white)),
+                subtitle: Text('Selecciona una imagen existente', style: TextStyle(color: Colors.white70)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'camera'),
+              child: const Text('Cámara', style: TextStyle(color: Color(0xFFE53935))),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'gallery'),
+              child: const Text('Galería', style: TextStyle(color: Color(0xFFE53935))),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white70)),
+            ),
+          ],
+        ),
+      );
+
+      if (choice == null) return;
+
+      // Capturar o seleccionar imagen
+      String? imagePath;
+      if (choice == 'camera') {
+        imagePath = await _visionService.captureImage();
+      } else if (choice == 'gallery') {
+        imagePath = await _visionService.pickImageFromGallery();
+      }
+
+      if (imagePath == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo obtener la imagen'),
+            backgroundColor: Color(0xFFE53935),
+          ),
+        );
+        return;
+      }
+
+      // Procesar imagen y detectar puntos
+      setState(() => _isLoading = true);
+      
+      final result = await _visionService.detectDominoPoints(imagePath);
+
+      setState(() => _isLoading = false);
+
+      // Mostrar resultado y confirmar
+      final confirmedResult = await _visionService.showImageAnalysisDialog(context, result);
+
+      if (confirmedResult != null && confirmedResult.detectedPoints.isNotEmpty) {
+        // Preguntar a qué jugador asignar los puntos
+        await _showPlayerSelectionDialog(confirmedResult);
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: const Color(0xFFE53935),
+        ),
+      );
+    }
+  }
+}
+
+// ─── Victory Screen con fuegos artificiales y confetti ───
+
+class _VictoryScreen extends StatefulWidget {
+  final String winner;
+  final bool isTie;
+  final AppLocalizations localizations;
+  final int maxPoints;
+  final DominoGame game;
+  final VoidCallback onRestart;
+
+  const _VictoryScreen({
+    required this.winner,
+    required this.isTie,
+    required this.localizations,
+    required this.maxPoints,
+    required this.game,
+    required this.onRestart,
+  });
+
+  @override
+  State<_VictoryScreen> createState() => _VictoryScreenState();
+}
+
+class _VictoryScreenState extends State<_VictoryScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _fireworksController;
+  late AnimationController _contentController;
+  late AnimationController _pulseController;
+  late Animation<double> _contentScale;
+  late Animation<double> _contentOpacity;
+  late Animation<double> _pulseAnimation;
+
+  final List<_Particle> _particles = [];
+  final math.Random _rng = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Controlador de partículas (fuegos/confetti) - loop
+    _fireworksController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+    _fireworksController.addListener(() {
+      _updateParticles();
+      setState(() {});
+    });
+
+    // Animación de entrada del contenido
+    _contentController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _contentScale = CurvedAnimation(
+      parent: _contentController,
+      curve: Curves.elasticOut,
+    );
+    _contentOpacity = CurvedAnimation(
+      parent: _contentController,
+      curve: Curves.easeIn,
+    );
+
+    // Pulso del trofeo
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _contentController.forward();
+    });
+  }
+
+  bool _initialBurstDone = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialBurstDone) {
+      _initialBurstDone = true;
+      _spawnBurst();
+    }
+  }
+
+  void _spawnBurst() {
+    final size = MediaQuery.of(context).size;
+    // Varios puntos de explosión
+    for (int burst = 0; burst < 5; burst++) {
+      final ox = _rng.nextDouble() * size.width;
+      final oy = _rng.nextDouble() * size.height * 0.5;
+      for (int i = 0; i < 20; i++) {
+        _particles.add(_Particle(
+          x: ox,
+          y: oy,
+          vx: (_rng.nextDouble() - 0.5) * 6,
+          vy: (_rng.nextDouble() - 0.8) * 5,
+          color: _randomBrightColor(),
+          life: 0.7 + _rng.nextDouble() * 0.3,
+          size: 3 + _rng.nextDouble() * 5,
+          isConfetti: _rng.nextBool(),
+          rotation: _rng.nextDouble() * 6.28,
+          rotationSpeed: (_rng.nextDouble() - 0.5) * 0.3,
+        ));
+      }
+    }
+  }
+
+  void _updateParticles() {
+    final size = MediaQuery.of(context).size;
+
+    // Actualizar existentes
+    for (final p in _particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.06; // gravedad
+      p.life -= 0.008;
+      p.rotation += p.rotationSpeed;
+    }
+    _particles.removeWhere((p) => p.life <= 0 || p.y > size.height + 20);
+
+    // Generar nuevos fuegos periódicamente
+    if (_rng.nextDouble() < 0.08) {
+      final ox = _rng.nextDouble() * size.width;
+      final oy = _rng.nextDouble() * size.height * 0.4;
+      for (int i = 0; i < 12; i++) {
+        _particles.add(_Particle(
+          x: ox,
+          y: oy,
+          vx: (_rng.nextDouble() - 0.5) * 5,
+          vy: (_rng.nextDouble() - 0.7) * 4,
+          color: _randomBrightColor(),
+          life: 0.6 + _rng.nextDouble() * 0.4,
+          size: 2 + _rng.nextDouble() * 4,
+          isConfetti: _rng.nextBool(),
+          rotation: _rng.nextDouble() * 6.28,
+          rotationSpeed: (_rng.nextDouble() - 0.5) * 0.3,
+        ));
+      }
+    }
+
+    // Confetti cayendo desde arriba
+    if (_rng.nextDouble() < 0.15) {
+      _particles.add(_Particle(
+        x: _rng.nextDouble() * size.width,
+        y: -10,
+        vx: (_rng.nextDouble() - 0.5) * 1.5,
+        vy: 1.5 + _rng.nextDouble() * 2,
+        color: _randomBrightColor(),
+        life: 0.8 + _rng.nextDouble() * 0.2,
+        size: 4 + _rng.nextDouble() * 6,
+        isConfetti: true,
+        rotation: _rng.nextDouble() * 6.28,
+        rotationSpeed: (_rng.nextDouble() - 0.5) * 0.2,
+      ));
+    }
+  }
+
+  Color _randomBrightColor() {
+    const colors = [
+      Color(0xFFE53935), // rojo
+      Color(0xFFFFD600), // dorado
+      Color(0xFF00E676), // verde
+      Color(0xFF2979FF), // azul
+      Color(0xFFFF6D00), // naranja
+      Color(0xFFAA00FF), // púrpura
+      Color(0xFF00E5FF), // cyan
+      Color(0xFFFF4081), // rosa
+    ];
+    return colors[_rng.nextInt(colors.length)];
+  }
+
+  @override
+  void dispose() {
+    _fireworksController.dispose();
+    _contentController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = widget.localizations;
+    final game = widget.game;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // Fondo oscuro semi-transparente
+          Container(color: Colors.black.withValues(alpha: 0.85)),
+
+          // Partículas (fuegos artificiales + confetti)
+          CustomPaint(
+            size: MediaQuery.of(context).size,
+            painter: _ParticlePainter(_particles),
+          ),
+
+          // Contenido central
+          Center(
+            child: FadeTransition(
+              opacity: _contentOpacity,
+              child: ScaleTransition(
+                scale: _contentScale,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF2D2D44), Color(0xFF1A1A2E)],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: const Color(0xFFE53935).withValues(alpha: 0.5),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFE53935).withValues(alpha: 0.3),
+                        blurRadius: 30,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Trofeo animado
+                      ScaleTransition(
+                        scale: _pulseAnimation,
+                        child: Text(
+                          widget.isTie ? '🤝' : '🏆',
+                          style: const TextStyle(fontSize: 72),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Título
+                      ShaderMask(
+                        shaderCallback: (bounds) => const LinearGradient(
+                          colors: [Color(0xFFFFD600), Color(0xFFFF6D00)],
+                        ).createShader(bounds),
+                        child: Text(
+                          loc.get('game_over'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Poppins',
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Nombre del ganador con glow
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE53935).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFFE53935).withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              widget.isTie
+                                  ? loc.get('tie')
+                                  : '${widget.winner} ${loc.get('winner')}!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: widget.isTie ? Colors.white : const Color(0xFFFFD600),
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Poppins',
+                                shadows: widget.isTie
+                                    ? null
+                                    : [
+                                        Shadow(
+                                          color: const Color(0xFFFFD600).withValues(alpha: 0.6),
+                                          blurRadius: 12,
+                                        ),
+                                      ],
+                              ),
+                            ),
+                            if (!widget.isTie) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                '${loc.get('reached_points')} ${widget.maxPoints}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Puntuaciones
+                      Text(
+                        loc.get('final_score'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildScoreRow(game.player1Name, game.player1Score, loc),
+                      _buildScoreRow(game.player2Name, game.player2Score, loc),
+                      if (game.player3Score > 0)
+                        _buildScoreRow(game.player3Name, game.player3Score, loc),
+                      if (game.player4Score > 0)
+                        _buildScoreRow(game.player4Name, game.player4Score, loc),
+
+                      const SizedBox(height: 24),
+
+                      // Botón reiniciar
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: widget.onRestart,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE53935),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 8,
+                            shadowColor: const Color(0xFFE53935).withValues(alpha: 0.5),
+                          ),
+                          child: Text(
+                            loc.get('restart'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              fontFamily: 'Poppins',
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScoreRow(String name, int score, AppLocalizations loc) {
+    final isWinner = name == widget.winner && !widget.isTie;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (isWinner)
+            const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: Text('👑', style: TextStyle(fontSize: 14)),
+            ),
+          Text(
+            '$name: $score ${loc.get('points')}',
+            style: TextStyle(
+              color: isWinner ? const Color(0xFFFFD600) : const Color(0xFFE53935),
+              fontSize: isWinner ? 17 : 15,
+              fontWeight: isWinner ? FontWeight.bold : FontWeight.normal,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Modelo de partícula ───
+
+class _Particle {
+  double x, y, vx, vy, life, size, rotation, rotationSpeed;
+  final Color color;
+  final bool isConfetti;
+
+  _Particle({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.color,
+    required this.life,
+    required this.size,
+    required this.isConfetti,
+    required this.rotation,
+    required this.rotationSpeed,
+  });
+}
+
+// ─── Painter de partículas ───
+
+class _ParticlePainter extends CustomPainter {
+  final List<_Particle> particles;
+
+  _ParticlePainter(this.particles);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final p in particles) {
+      final paint = Paint()
+        ..color = p.color.withValues(alpha: (p.life).clamp(0.0, 1.0));
+
+      if (p.isConfetti) {
+        // Confetti: rectángulos rotados
+        canvas.save();
+        canvas.translate(p.x, p.y);
+        canvas.rotate(p.rotation);
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.5),
+          paint,
+        );
+        canvas.restore();
+      } else {
+        // Fuegos artificiales: círculos brillantes
+        paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+        canvas.drawCircle(Offset(p.x, p.y), p.size * 0.5, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

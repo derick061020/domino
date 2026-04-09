@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Esta app necesita acceso a la cámara para escanear puntos de domino desde fotos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Esta app necesita acceso a la galería para seleccionar imágenes de domino y escanear puntos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Esta app necesita permiso para guardar imágenes procesadas de domino.</string>
 </dict>
 </plist>
