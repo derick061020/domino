@@ -35,20 +35,6 @@ class DominoVisionService {
     }
   }
 
-  Future<String?> pickImageFromGallery() async {
-    try {
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-
-      return image?.path;
-    } catch (e) {
-      debugPrint('Error picking image: $e');
-      return null;
-    }
-  }
-
   Future<DominoDetectionResult> detectDominoPoints(String imagePath) async {
     try {
       final File imageFile = File(imagePath);
@@ -274,16 +260,18 @@ class DominoVisionService {
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Mostrar la imagen capturada
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: Image.file(
-                    File(result.imagePath),
-                    fit: BoxFit.cover,
+              // Mostrar la imagen capturada centrada
+              Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220, maxWidth: 220),
+                    child: Image.file(
+                      File(result.imagePath),
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ),

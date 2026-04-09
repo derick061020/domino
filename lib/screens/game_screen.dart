@@ -1609,62 +1609,11 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _captureAndDetectPoints() async {
     try {
-      // Mostrar diálogo de opciones
-      final choice = await showDialog<String>(
-        context: context,
-        builder: (_) => AlertDialog(
-          backgroundColor: const Color(0xFF2D2D44),
-          title: const Text(
-            'Escanear Puntos',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ListTile(
-                leading: Icon(Icons.camera_alt, color: Color(0xFFE53935)),
-                title: Text('Tomar foto', style: TextStyle(color: Colors.white)),
-                subtitle: Text('Usa la cámara para capturar los puntos', style: TextStyle(color: Colors.white70)),
-              ),
-              const ListTile(
-                leading: Icon(Icons.photo_library, color: Color(0xFFE53935)),
-                title: Text('Galería', style: TextStyle(color: Colors.white)),
-                subtitle: Text('Selecciona una imagen existente', style: TextStyle(color: Colors.white70)),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'camera'),
-              child: const Text('Cámara', style: TextStyle(color: Color(0xFFE53935))),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'gallery'),
-              child: const Text('Galería', style: TextStyle(color: Color(0xFFE53935))),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar', style: TextStyle(color: Colors.white70)),
-            ),
-          ],
-        ),
-      );
-
-      if (choice == null) return;
-
-      // Capturar o seleccionar imagen
-      String? imagePath;
-      if (choice == 'camera') {
-        imagePath = await _visionService.captureImage();
-      } else if (choice == 'gallery') {
-        imagePath = await _visionService.pickImageFromGallery();
-      }
+      // Abrir cámara directamente
+      final imagePath = await _visionService.captureImage();
 
       if (imagePath == null) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('No se pudo obtener la imagen'),
@@ -1676,20 +1625,22 @@ class _GameScreenState extends State<GameScreen> {
 
       // Procesar imagen y detectar puntos
       setState(() => _isLoading = true);
-      
+
       final result = await _visionService.detectDominoPoints(imagePath);
 
       setState(() => _isLoading = false);
+
+      if (!mounted) return;
 
       // Mostrar resultado y confirmar
       final confirmedResult = await _visionService.showImageAnalysisDialog(context, result);
 
       if (confirmedResult != null && confirmedResult.detectedPoints.isNotEmpty) {
-        // Preguntar a qué jugador asignar los puntos
         await _showPlayerSelectionDialog(confirmedResult);
       }
     } catch (e) {
       setState(() => _isLoading = false);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
