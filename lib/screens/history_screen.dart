@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/game_model.dart';
 import '../services/game_service.dart';
+import '../languages/app_localizations.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -14,14 +15,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E2E),
       appBar: AppBar(
         backgroundColor: const Color(0xFF2D2D44),
         elevation: 0,
-        title: const Text(
-          'Historial de Partidas',
-          style: TextStyle(
+        title: Text(
+          loc.get('games_history'),
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontFamily: 'Poppins',
@@ -53,9 +55,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     color: Colors.grey.shade400,
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'No hay partidas guardadas',
-                    style: TextStyle(
+                  Text(
+                    loc.get('no_saved_games'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontFamily: 'Poppins',
@@ -63,7 +65,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Juega algunas partidas para verlas aquí',
+                    loc.get('play_to_see_games'),
                     style: TextStyle(
                       color: Colors.grey.shade300,
                       fontSize: 14,
@@ -118,7 +120,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            game.isCompleted ? 'Terminada' : 'En juego',
+                            game.isCompleted ? loc.get('finished') : loc.get('in_progress'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
@@ -197,7 +199,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${player['score']} pts',
+                    '${player['score']} ${AppLocalizations.of(context).get('pts')}',
                     style: const TextStyle(
                       color: Color(0xFFE53935),
                       fontSize: 20,

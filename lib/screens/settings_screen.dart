@@ -498,7 +498,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 Text(
-                  'Jugador $playerNumber',
+                  '${AppLocalizations.of(context).get('player')} $playerNumber',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
                     fontFamily: 'Poppins',

@@ -4,6 +4,7 @@ import 'package:image/image.dart' as img;
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+import '../languages/app_localizations.dart';
 
 class DominoDetectionResult {
   final List<int> detectedPoints;
@@ -37,7 +38,8 @@ class DominoVisionService {
     }
   }
 
-  Future<DominoDetectionResult> detectDominoPoints(String imagePath) async {
+  Future<DominoDetectionResult> detectDominoPoints(String imagePath,
+      {AppLocalizations? loc}) async {
     try {
       final File imageFile = File(imagePath);
       final Uint8List imageBytes = await imageFile.readAsBytes();
@@ -68,24 +70,50 @@ class DominoVisionService {
       // 2. Blur 3x3 para reducir ruido
       final Uint8List blurred = _boxBlur(lum, width, height);
 
-      // 3. Probar ambas polaridades y elegir la mejor
-      final darkDots = _detectBlobs(blurred, width, height, darkOnLight: true);
-      final lightDots = _detectBlobs(blurred, width, height, darkOnLight: false);
+      // 3. Detectar la ficha de dominó (bounding box)
+      final _Rect? tileRect = _findDominoTile(blurred, width, height);
+
+      // 4. Detectar puntos SOLO dentro de la ficha (o en toda la imagen si no se encontró)
+      final _Rect roi = tileRect ??
+          _Rect(
+            x0: 0,
+            y0: 0,
+            x1: width - 1,
+            y1: height - 1,
+          );
+
+      final darkDots = _detectBlobs(blurred, width, height,
+          darkOnLight: true, roi: roi);
+      final lightDots = _detectBlobs(blurred, width, height,
+          darkOnLight: false, roi: roi);
 
       // Elegir el set que tenga más blobs consistentes (tamaño uniforme)
       final List<_Blob> chosen =
           _scoreBlobSet(darkDots) >= _scoreBlobSet(lightDots) ? darkDots : lightDots;
 
-      // 4. Dibujar círculos sobre la imagen para visualización
+      // 5. Dibujar la ficha detectada y los círculos sobre la imagen
       String? annotatedPath;
+      final annotated = img.Image.from(image);
+      if (tileRect != null) {
+        // Rectángulo azul alrededor de la ficha
+        final blue = img.ColorRgb8(0, 150, 255);
+        for (int t = 0; t < 3; t++) {
+          img.drawRect(
+            annotated,
+            x1: tileRect.x0 - t,
+            y1: tileRect.y0 - t,
+            x2: tileRect.x1 + t,
+            y2: tileRect.y1 + t,
+            color: blue,
+          );
+        }
+      }
       if (chosen.isNotEmpty) {
-        final annotated = img.Image.from(image);
         final green = img.ColorRgb8(0, 255, 0);
         for (final blob in chosen) {
           final radius = (sqrt(blob.area / pi)).round().clamp(4, 40);
           final cx = blob.centerX.round();
           final cy = blob.centerY.round();
-          // Dibujar varios círculos concéntricos para simular grosor
           for (int t = 0; t < 3; t++) {
             img.drawCircle(
               annotated,
@@ -96,6 +124,8 @@ class DominoVisionService {
             );
           }
         }
+      }
+      if (tileRect != null || chosen.isNotEmpty) {
         final tempDir = imageFile.parent.path;
         final ts = DateTime.now().millisecondsSinceEpoch;
         annotatedPath = '$tempDir/annotated_$ts.jpg';
@@ -104,20 +134,30 @@ class DominoVisionService {
 
       final totalPoints = chosen.length;
 
+      final String info;
+      if (totalPoints > 0) {
+        info = loc != null
+            ? loc.get('detected_n_points').replaceAll('%d', '$totalPoints')
+            : 'Detected $totalPoints points in the image';
+      } else {
+        info = loc != null
+            ? loc.get('no_points_hint')
+            : 'No points detected.';
+      }
+
       return DominoDetectionResult(
         detectedPoints: totalPoints > 0 ? [totalPoints] : [],
         imagePath: imagePath,
         annotatedImagePath: annotatedPath,
-        analysisInfo: totalPoints > 0
-            ? 'Se detectaron $totalPoints puntos en la imagen'
-            : 'No se detectaron puntos. Acerca más el dominó, mejora la iluminación y evita sombras.',
+        analysisInfo: info,
       );
     } catch (e) {
       debugPrint('Error detecting domino points: $e');
+      final errorLabel = loc != null ? loc.get('analysis_error') : 'Analysis error';
       return DominoDetectionResult(
         detectedPoints: [],
         imagePath: imagePath,
-        analysisInfo: 'Error en el análisis: ${e.toString()}',
+        analysisInfo: '$errorLabel: ${e.toString()}',
       );
     }
   }
@@ -147,8 +187,9 @@ class DominoVisionService {
 
   /// Detecta blobs con umbral adaptativo. `darkOnLight` = true detecta
   /// puntos oscuros sobre fondo claro; false al revés.
+  /// Solo analiza píxeles dentro de `roi`.
   List<_Blob> _detectBlobs(Uint8List lum, int width, int height,
-      {required bool darkOnLight}) {
+      {required bool darkOnLight, required _Rect roi}) {
     // Umbral adaptativo usando suma sobre ventana pequeña
     final int windowRadius = 15; // ventana ~31px
     final List<bool> isFg = List.filled(width * height, false);
@@ -166,12 +207,12 @@ class DominoVisionService {
 
     const int threshDelta = 15; // cuánto debe desviarse del fondo local
 
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        final x0 = max(0, x - windowRadius);
-        final y0 = max(0, y - windowRadius);
-        final x1 = min(width - 1, x + windowRadius);
-        final y1 = min(height - 1, y + windowRadius);
+    for (int y = roi.y0; y <= roi.y1; y++) {
+      for (int x = roi.x0; x <= roi.x1; x++) {
+        final x0 = max(roi.x0, x - windowRadius);
+        final y0 = max(roi.y0, y - windowRadius);
+        final x1 = min(roi.x1, x + windowRadius);
+        final y1 = min(roi.y1, y + windowRadius);
 
         final int sum = integral[(y1 + 1) * (width + 1) + (x1 + 1)]
             - integral[y0 * (width + 1) + (x1 + 1)]
@@ -189,13 +230,18 @@ class DominoVisionService {
       }
     }
 
-    // Flood-fill para encontrar blobs
+    // Flood-fill para encontrar blobs (solo dentro del ROI)
     final List<int> labels = List.filled(width * height, -1);
     final List<_Blob> blobs = [];
     int labelId = 0;
 
-    for (int y = 1; y < height - 1; y++) {
-      for (int x = 1; x < width - 1; x++) {
+    final int yMin = max(1, roi.y0);
+    final int yMax = min(height - 2, roi.y1);
+    final int xMin = max(1, roi.x0);
+    final int xMax = min(width - 2, roi.x1);
+
+    for (int y = yMin; y <= yMax; y++) {
+      for (int x = xMin; x <= xMax; x++) {
         final idx = y * width + x;
         if (isFg[idx] && labels[idx] == -1) {
           final blob = _floodFill(isFg, labels, width, height, x, y, labelId);
@@ -205,10 +251,10 @@ class DominoVisionService {
       }
     }
 
-    // Filtrar por tamaño y forma
-    final double imageArea = width.toDouble() * height.toDouble();
-    final double minBlobArea = imageArea * 0.0002;
-    final double maxBlobArea = imageArea * 0.04;
+    // Filtrar por tamaño y forma (relativo al área del ROI, no de la imagen)
+    final double roiArea = roi.width.toDouble() * roi.height.toDouble();
+    final double minBlobArea = roiArea * 0.001;
+    final double maxBlobArea = roiArea * 0.08;
 
     final List<_Blob> candidates = [];
     for (final blob in blobs) {
@@ -367,14 +413,15 @@ class DominoVisionService {
 
   Future<DominoDetectionResult?> showImageAnalysisDialog(
       BuildContext context, DominoDetectionResult result) async {
+    final loc = AppLocalizations.of(context);
     return showDialog<DominoDetectionResult>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF2D2D44),
-          title: const Text(
-            'Análisis de Puntos',
-            style: TextStyle(
+          title: Text(
+            loc.get('analyze_points'),
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
               fontFamily: 'Poppins',
@@ -419,9 +466,9 @@ class DominoVisionService {
 
               // Puntos detectados
               if (result.detectedPoints.isEmpty)
-                const Text(
-                  'No se detectaron puntos',
-                  style: TextStyle(
+                Text(
+                  loc.get('no_points_detected'),
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontFamily: 'Poppins',
                   ),
@@ -430,9 +477,9 @@ class DominoVisionService {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Puntos detectados:',
-                      style: TextStyle(
+                    Text(
+                      loc.get('detected_points'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -441,7 +488,7 @@ class DominoVisionService {
                     ),
                     const SizedBox(height: 8),
                     ...result.detectedPoints.map((points) => Text(
-                      '· $points puntos',
+                      '· $points ${loc.get('points')}',
                       style: const TextStyle(
                         color: Color(0xFFE53935),
                         fontSize: 18,
@@ -456,9 +503,9 @@ class DominoVisionService {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(
+              child: Text(
+                loc.get('cancel'),
+                style: const TextStyle(
                   color: Color(0xFFE53935),
                   fontFamily: 'Poppins',
                 ),
@@ -472,9 +519,9 @@ class DominoVisionService {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFE53935),
                 ),
-                child: const Text(
-                  'Usar estos puntos',
-                  style: TextStyle(
+                child: Text(
+                  loc.get('use_these_points'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Poppins',
@@ -506,4 +553,170 @@ class _Blob {
 
   int get bboxWidth => maxX - minX + 1;
   int get bboxHeight => maxY - minY + 1;
+}
+
+class _Rect {
+  final int x0, y0, x1, y1;
+  _Rect({
+    required this.x0,
+    required this.y0,
+    required this.x1,
+    required this.y1,
+  });
+  int get width => x1 - x0 + 1;
+  int get height => y1 - y0 + 1;
+}
+
+extension _DominoTileDetection on DominoVisionService {
+  /// Encuentra el bounding box de la ficha de dominó en la imagen.
+  /// Estrategia: umbralizar por media global, probar ambas polaridades
+  /// (ficha clara / ficha oscura) y quedarse con el blob más grande y
+  /// rectangular que tenga un área razonable.
+  _Rect? _findDominoTile(Uint8List lum, int width, int height) {
+    // Media global de luminancia
+    int sum = 0;
+    for (int i = 0; i < lum.length; i++) {
+      sum += lum[i];
+    }
+    final double globalMean = sum / lum.length;
+
+    _Rect? bestRect;
+    double bestScore = 0;
+
+    for (final bool brightTile in [true, false]) {
+      final List<bool> isFg = List.filled(width * height, false);
+      const int delta = 10;
+
+      for (int i = 0; i < lum.length; i++) {
+        if (brightTile) {
+          isFg[i] = lum[i] > globalMean + delta;
+        } else {
+          isFg[i] = lum[i] < globalMean - delta;
+        }
+      }
+
+      // Flood-fill global para encontrar el blob más grande
+      final List<int> labels = List.filled(width * height, -1);
+      int labelId = 0;
+      _Blob? largest;
+
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          final idx = y * width + x;
+          if (isFg[idx] && labels[idx] == -1) {
+            final blob = _tileFloodFill(isFg, labels, width, height, x, y, labelId);
+            labelId++;
+            if (blob != null) {
+              if (largest == null || blob.area > largest.area) {
+                largest = blob;
+              }
+            }
+          }
+        }
+      }
+
+      if (largest == null) continue;
+
+      final double imageArea = width.toDouble() * height.toDouble();
+      if (largest.area < imageArea * 0.05) continue;
+      if (largest.area > imageArea * 0.95) continue;
+
+      final int bw = largest.bboxWidth;
+      final int bh = largest.bboxHeight;
+      if (bw < 20 || bh < 20) continue;
+
+      final double aspectRatio = bw / bh;
+      if (aspectRatio < 0.3 || aspectRatio > 3.5) continue;
+
+      final double bboxArea = bw * bh.toDouble();
+      final double fillRatio = largest.area / bboxArea;
+      if (fillRatio < 0.65) continue;
+
+      // Score: área * fillRatio (preferimos rectangulos llenos y grandes)
+      final double score = largest.area * fillRatio;
+      if (score > bestScore) {
+        bestScore = score;
+        // Añadir un pequeño margen hacia adentro para evitar tocar el borde
+        final int pad = 2;
+        bestRect = _Rect(
+          x0: max(0, largest.minX + pad),
+          y0: max(0, largest.minY + pad),
+          x1: min(width - 1, largest.maxX - pad),
+          y1: min(height - 1, largest.maxY - pad),
+        );
+      }
+    }
+
+    return bestRect;
+  }
+
+  /// Flood-fill sin límite de tamaño (usado para detectar la ficha entera).
+  _Blob? _tileFloodFill(List<bool> isFg, List<int> labels, int width,
+      int height, int startX, int startY, int labelId) {
+    final queue = <int>[];
+    final startIdx = startY * width + startX;
+    queue.add(startIdx);
+    labels[startIdx] = labelId;
+
+    int area = 0;
+    int sumX = 0, sumY = 0;
+    int minX = startX, maxX = startX;
+    int minY = startY, maxY = startY;
+
+    int head = 0;
+    while (head < queue.length) {
+      final idx = queue[head++];
+      final x = idx % width;
+      final y = idx ~/ width;
+
+      area++;
+      sumX += x;
+      sumY += y;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+
+      if (x > 0) {
+        final n = idx - 1;
+        if (isFg[n] && labels[n] == -1) {
+          labels[n] = labelId;
+          queue.add(n);
+        }
+      }
+      if (x < width - 1) {
+        final n = idx + 1;
+        if (isFg[n] && labels[n] == -1) {
+          labels[n] = labelId;
+          queue.add(n);
+        }
+      }
+      if (y > 0) {
+        final n = idx - width;
+        if (isFg[n] && labels[n] == -1) {
+          labels[n] = labelId;
+          queue.add(n);
+        }
+      }
+      if (y < height - 1) {
+        final n = idx + width;
+        if (isFg[n] && labels[n] == -1) {
+          labels[n] = labelId;
+          queue.add(n);
+        }
+      }
+    }
+
+    if (area < 400) return null;
+
+    return _Blob(
+      centerX: sumX / area,
+      centerY: sumY / area,
+      area: area.toDouble(),
+      minX: minX,
+      maxX: maxX,
+      minY: minY,
+      maxY: maxY,
+    );
+  }
 }

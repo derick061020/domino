@@ -294,13 +294,14 @@ class _GameScreenState extends State<GameScreen> {
   void _showMaxPointsDialog() {
     final controller = TextEditingController(text: _maxPoints.toString());
     
+    final loc = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D44),
-        title: const Text(
-          'Puntos para ganar',
-          style: TextStyle(
+        title: Text(
+          loc.get('points_to_win'),
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontFamily: 'Poppins',
@@ -359,7 +360,7 @@ class _GameScreenState extends State<GameScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: Color(0xFFE53935))),
+            child: Text(loc.get('cancel'), style: const TextStyle(color: Color(0xFFE53935))),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -400,9 +401,9 @@ class _GameScreenState extends State<GameScreen> {
                 borderRadius: BorderRadius.circular(8),
                 splashColor: Colors.white.withOpacity(0.3),
                 highlightColor: Colors.white.withOpacity(0.2),
-                child: const Text(
-                  'Guardar',
-                  style: TextStyle(
+                child: Text(
+                  loc.get('save'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Poppins',
@@ -417,13 +418,14 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showPlayerCountDialog() {
+    final loc = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D44),
-        title: const Text(
-          'Número de jugadores',
-          style: TextStyle(
+        title: Text(
+          loc.get('player_count'),
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontFamily: 'Poppins',
@@ -448,7 +450,7 @@ class _GameScreenState extends State<GameScreen> {
                 }
               },
               title: Text(
-                '$count jugadores',
+                '$count ${loc.get('players_count')}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontFamily: 'Poppins',
@@ -982,7 +984,7 @@ class _GameScreenState extends State<GameScreen> {
           // Historial
           _buildBottomBarItem(
             icon: Icons.history,
-            label: 'Historial',
+            label: AppLocalizations.of(context).get('history'),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => const HistoryScreen(),
@@ -993,19 +995,19 @@ class _GameScreenState extends State<GameScreen> {
           if (_playerCount == 2)
             _buildBottomBarItem(
               icon: Icons.camera_alt,
-              label: 'Escanear',
+              label: AppLocalizations.of(context).get('scan'),
               onTap: () => _captureAndDetectPoints(),
             ),
           // Reiniciar
           _buildBottomBarItem(
             icon: Icons.refresh,
-            label: 'Reiniciar',
+            label: AppLocalizations.of(context).get('restart'),
             onTap: () => _showResetDialog(),
           ),
           // Premium
           _buildBottomBarItem(
             icon: Icons.star,
-            label: 'Premium',
+            label: AppLocalizations.of(context).get('premium'),
             onTap: () => _showPremiumDialog(),
           ),
         ],
@@ -1052,21 +1054,22 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showResetDialog() {
+    final loc = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D44),
-        title: const Text(
-          'Reiniciar Partida',
-          style: TextStyle(
+        title: Text(
+          loc.get('restart_game'),
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontFamily: 'Poppins',
           ),
         ),
-        content: const Text(
-          '¿Estás seguro de que quieres reiniciar la partida actual? Se perderán todos los puntos acumulados.',
-          style: TextStyle(
+        content: Text(
+          loc.get('restart_confirm'),
+          style: const TextStyle(
             color: Colors.white,
             fontFamily: 'Poppins',
           ),
@@ -1074,7 +1077,7 @@ class _GameScreenState extends State<GameScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: Color(0xFFE53935))),
+            child: Text(loc.get('cancel'), style: const TextStyle(color: Color(0xFFE53935))),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1099,9 +1102,9 @@ class _GameScreenState extends State<GameScreen> {
                 borderRadius: BorderRadius.circular(8),
                 splashColor: Colors.white.withOpacity(0.3),
                 highlightColor: Colors.white.withOpacity(0.2),
-                child: const Text(
-                  'Reiniciar',
-                  style: TextStyle(
+                child: Text(
+                  loc.get('restart'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Poppins',
@@ -1116,13 +1119,14 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showPremiumDialog() {
+    final loc = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D44),
-        title: const Text(
-          'DOMINO SCORE PREMIUM',
-          style: TextStyle(
+        title: Text(
+          loc.get('premium_title'),
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontFamily: 'Poppins',
@@ -1137,26 +1141,26 @@ class _GameScreenState extends State<GameScreen> {
               size: 60,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Desbloquea funciones premium:',
-              style: TextStyle(
+            Text(
+              loc.get('unlock_premium'),
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
                 fontFamily: 'Poppins',
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              '· Sin anuncios\n· Estadísticas avanzadas\n· Personalización completa\n· Respaldo en la nube',
-              style: TextStyle(
+            Text(
+              loc.get('premium_features'),
+              style: const TextStyle(
                 color: Colors.white70,
                 fontFamily: 'Poppins',
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              'Próximamente disponibles...',
-              style: TextStyle(
+              loc.get('coming_soon'),
+              style: const TextStyle(
                 color: Colors.white70,
                 fontFamily: 'Poppins',
               ),
@@ -1166,7 +1170,7 @@ class _GameScreenState extends State<GameScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar', style: TextStyle(color: Color(0xFFE53935))),
+            child: Text(loc.get('close'), style: const TextStyle(color: Color(0xFFE53935))),
           ),
         ],
       ),
@@ -1355,7 +1359,7 @@ class _GameScreenState extends State<GameScreen> {
                     _loadBackground();
                   },
                   icon: const Icon(Icons.settings, color: Colors.white),
-                  tooltip: 'Configuración',
+                  tooltip: AppLocalizations.of(context).get('settings'),
                 ),
                 
               ],
@@ -1380,6 +1384,7 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _showPlayerSelectionDialog(DominoDetectionResult result) async {
     if (result.detectedPoints.isEmpty) return;
+    final loc = AppLocalizations.of(context);
 
     // Si solo hay un valor de puntos, asignarlo directamente
     if (result.detectedPoints.length == 1) {
@@ -1389,7 +1394,7 @@ class _GameScreenState extends State<GameScreen> {
         _addPointsToPlayer(selectedPlayer, points);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Puntos asignados: ${_getPlayerName(selectedPlayer)}: $points'),
+            content: Text('${loc.get('points_assigned')}: ${_getPlayerName(selectedPlayer)}: $points'),
             backgroundColor: Colors.green,
           ),
         );
@@ -1406,9 +1411,9 @@ class _GameScreenState extends State<GameScreen> {
           children: [
             const Icon(Icons.calculate, color: Color(0xFFE53935), size: 24),
             const SizedBox(width: 8),
-            const Text(
-              'Asignar Puntos',
-              style: TextStyle(
+            Text(
+              loc.get('assign_points'),
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
                 fontFamily: 'Poppins',
@@ -1438,9 +1443,9 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Selecciona los puntos y el jugador:',
-                style: TextStyle(color: Colors.white70, fontFamily: 'Poppins'),
+              Text(
+                loc.get('select_points_player'),
+                style: const TextStyle(color: Colors.white70, fontFamily: 'Poppins'),
               ),
               const SizedBox(height: 16),
               ...result.detectedPoints.asMap().entries.map((entry) {
@@ -1477,7 +1482,7 @@ class _GameScreenState extends State<GameScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            '$points puntos',
+                            '$points ${loc.get('points')}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -1488,9 +1493,9 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                       ],
                     ),
-                    subtitle: const Text(
-                      'Asignar a jugador',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    subtitle: Text(
+                      loc.get('assign_to_player'),
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                     trailing: PopupMenuButton<int>(
                       icon: const Icon(Icons.person_add, color: Color(0xFFE53935)),
@@ -1517,7 +1522,7 @@ class _GameScreenState extends State<GameScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white70)),
+            child: Text(loc.get('cancel'), style: const TextStyle(color: Colors.white70)),
           ),
         ],
       ),
@@ -1529,7 +1534,7 @@ class _GameScreenState extends State<GameScreen> {
       _addPointsToPlayer(player, points);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Puntos asignados: ${_getPlayerName(player)}: $points'),
+          content: Text('${loc.get('points_assigned')}: ${_getPlayerName(player)}: $points'),
           backgroundColor: Colors.green,
         ),
       );
@@ -1537,12 +1542,13 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<int?> _showSinglePointSelectionDialog(int points) async {
+    final loc = AppLocalizations.of(context);
     return await showDialog<int>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D44),
         title: Text(
-          'Asignar $points puntos',
+          loc.get('assign_n_points').replaceAll('%d', '$points'),
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -1552,9 +1558,9 @@ class _GameScreenState extends State<GameScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Selecciona el jugador:',
-              style: TextStyle(color: Colors.white70),
+            Text(
+              loc.get('select_player'),
+              style: const TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 16),
             ...[1, 2, 3, 4].where((p) => p <= _playerCount).map((player) => ListTile(
@@ -1584,14 +1590,14 @@ class _GameScreenState extends State<GameScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white70)),
+            child: Text(loc.get('cancel'), style: const TextStyle(color: Colors.white70)),
           ),
         ],
       ),
     );
   }
 
-  
+
   String _getPlayerName(int player) {
     switch (player) {
       case 1:
@@ -1603,11 +1609,12 @@ class _GameScreenState extends State<GameScreen> {
       case 4:
         return _currentGame.player4Name;
       default:
-        return 'Jugador $player';
+        return '${AppLocalizations.of(context).get('player')} $player';
     }
   }
 
   Future<void> _captureAndDetectPoints() async {
+    final loc = AppLocalizations.of(context);
     try {
       // Abrir cámara directamente
       final imagePath = await _visionService.captureImage();
@@ -1615,9 +1622,9 @@ class _GameScreenState extends State<GameScreen> {
       if (imagePath == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo obtener la imagen'),
-            backgroundColor: Color(0xFFE53935),
+          SnackBar(
+            content: Text(loc.get('could_not_get_image')),
+            backgroundColor: const Color(0xFFE53935),
           ),
         );
         return;
@@ -1626,7 +1633,10 @@ class _GameScreenState extends State<GameScreen> {
       // Procesar imagen y detectar puntos
       setState(() => _isLoading = true);
 
-      final result = await _visionService.detectDominoPoints(imagePath);
+      final result = await _visionService.detectDominoPoints(
+        imagePath,
+        loc: loc,
+      );
 
       setState(() => _isLoading = false);
 
