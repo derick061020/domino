@@ -73,7 +73,7 @@ class DominoVisionService {
       // 3. Detectar la ficha de dominó (bounding box)
       final _Rect? tileRect = _findDominoTile(blurred, width, height);
 
-      // 4. Detectar puntos SOLO dentro de la ficha (o en toda la imagen si no se encontró)
+      // 4. Detectar puntos con múltiples métodos mejorados
       final _Rect roi = tileRect ??
           _Rect(
             x0: 0,
@@ -82,20 +82,20 @@ class DominoVisionService {
             y1: height - 1,
           );
 
-      // Múltiples métodos de detección de puntos
+      // Múltiples métodos de detección para encontrar más puntos
       final List<List<_Blob>> allCandidates = [];
       
-      // Método 1: Detección adaptativa existente (mejorada)
+      // Método 1: Detección adaptativa existente
       allCandidates.add(_detectBlobs(blurred, width, height,
           darkOnLight: true, roi: roi));
       allCandidates.add(_detectBlobs(blurred, width, height,
           darkOnLight: false, roi: roi));
       
-      // Método 2: Detección por umbral Otsu
-      allCandidates.add(_detectBlobsOtsu(blurred, width, height, roi: roi));
+      // Método 2: Detección por umbral global
+      allCandidates.add(_detectBlobsGlobalThreshold(lum, width, height, roi: roi));
       
-      // Método 3: Detección por diferencia de Gaussianas
-      allCandidates.add(_detectBlobsDoG(blurred, width, height, roi: roi));
+      // Método 3: Detección por umbral Otsu
+      allCandidates.add(_detectBlobsOtsu(lum, width, height, roi: roi));
 
       // Elegir el mejor conjunto de blobs
       List<_Blob> chosen = [];
@@ -109,107 +109,18 @@ class DominoVisionService {
         }
       }
 
-      // 5. Dibujar la ficha detectada y los círculos sobre la imagen
+      // 5. Dibujar la ficha detectada y los puntos con mejor visualización
       String? annotatedPath;
       final annotated = img.Image.from(image);
+      
       if (tileRect != null) {
-        // Rectángulo más visible alrededor de la ficha con relleno semitransparente
-        final blue = img.ColorRgb8(0, 150, 255);
-        final lightBlue = img.ColorRgb8(100, 180, 255);
-        
-        // Relleno semitransparente de la ficha
-        for (int y = tileRect.y0; y <= tileRect.y1; y++) {
-          for (int x = tileRect.x0; x <= tileRect.x1; x++) {
-            final pixel = annotated.getPixel(x, y);
-            annotated.setPixel(x, y, img.ColorRgb8(
-              (pixel.r * 0.7 + lightBlue.r * 0.3).round(),
-              (pixel.g * 0.7 + lightBlue.g * 0.3).round(),
-              (pixel.b * 0.7 + lightBlue.b * 0.3).round(),
-            ));
-          }
-        }
-        
-        // Borde grueso alrededor de la ficha
-        for (int t = 0; t < 5; t++) {
-          img.drawRect(
-            annotated,
-            x1: tileRect.x0 - t,
-            y1: tileRect.y0 - t,
-            x2: tileRect.x1 + t,
-            y2: tileRect.y1 + t,
-            color: t < 3 ? blue : lightBlue,
-          );
-        }
-        
-        // Etiqueta "FICHA" arriba de la ficha detectada
-        if (tileRect.y0 > 20) {
-          final String label = "FICHA";
-          final int labelX = tileRect.x0 + (tileRect.width - label.length * 8) ~/ 2;
-          final int labelY = tileRect.y0 - 5;
-          for (int i = 0; i < label.length; i++) {
-            // Dibujar texto simple (simulado con pequeños rectángulos)
-            for (int dy = 0; dy < 8; dy++) {
-              for (int dx = 0; dx < 6; dx++) {
-                if (labelX + i * 8 + dx < width && labelY + dy < height) {
-                  annotated.setPixel(labelX + i * 8 + dx, labelY + dy, blue);
-                }
-              }
-            }
-          }
-        }
+        // Dibujar ficha de domino detectada con mejor visualización
+        _drawDominoTile(annotated, tileRect, width, height);
       }
       
       if (chosen.isNotEmpty) {
-        final green = img.ColorRgb8(0, 255, 0);
-        final brightGreen = img.ColorRgb8(150, 255, 150);
-        
-        for (final blob in chosen) {
-          final radius = (sqrt(blob.area / pi)).round().clamp(4, 40);
-          final cx = blob.centerX.round();
-          final cy = blob.centerY.round();
-          
-          // Círculo relleno semitransparente
-          for (int dy = -radius; dy <= radius; dy++) {
-            for (int dx = -radius; dx <= radius; dx++) {
-              if (dx * dx + dy * dy <= radius * radius) {
-                final int px = cx + dx;
-                final int py = cy + dy;
-                if (px >= 0 && px < width && py >= 0 && py < height) {
-                  final pixel = annotated.getPixel(px, py);
-                  annotated.setPixel(px, py, img.ColorRgb8(
-                    (pixel.r * 0.3 + brightGreen.r * 0.7).round(),
-                    (pixel.g * 0.3 + brightGreen.g * 0.7).round(),
-                    (pixel.b * 0.3 + brightGreen.b * 0.7).round(),
-                  ));
-                }
-              }
-            }
-          }
-          
-          // Borde del círculo
-          for (int t = 0; t < 3; t++) {
-            img.drawCircle(
-              annotated,
-              x: cx,
-              y: cy,
-              radius: radius + 2 + t,
-              color: green,
-            );
-          }
-          
-          // Número del punto en el centro
-          final int numX = cx - 4;
-          final int numY = cy - 4;
-          for (int dy = 0; dy < 8; dy++) {
-            for (int dx = 0; dx < 8; dx++) {
-              final int px = numX + dx;
-              final int py = numY + dy;
-              if (px >= 0 && px < width && py >= 0 && py < height) {
-                annotated.setPixel(px, py, img.ColorRgb8(255, 255, 255));
-              }
-            }
-          }
-        }
+        // Dibujar puntos detectados con mejor visualización
+        _drawDetectedPoints(annotated, chosen, width, height);
       }
       if (tileRect != null || chosen.isNotEmpty) {
         final tempDir = imageFile.parent.path;
@@ -480,241 +391,6 @@ class DominoVisionService {
     );
   }
 
-  /// Detección de blobs usando umbral Otsu
-  List<_Blob> _detectBlobsOtsu(Uint8List lum, int width, int height, {required _Rect roi}) {
-    // Calcular histograma dentro del ROI
-    final List<int> histogram = List.filled(256, 0);
-    int pixelCount = 0;
-    
-    for (int y = roi.y0; y <= roi.y1; y++) {
-      for (int x = roi.x0; x <= roi.x1; x++) {
-        final pixel = lum[y * width + x];
-        histogram[pixel]++;
-        pixelCount++;
-      }
-    }
-    
-    // Calcular umbral Otsu
-    double bestThreshold = 0;
-    double bestVariance = 0;
-    
-    for (int t = 0; t < 256; t++) {
-      double w0 = 0, w1 = 0, mu0 = 0, mu1 = 0;
-      
-      for (int i = 0; i < 256; i++) {
-        if (i <= t) {
-          w0 += histogram[i];
-          mu0 += i * histogram[i];
-        } else {
-          w1 += histogram[i];
-          mu1 += i * histogram[i];
-        }
-      }
-      
-      if (w0 > 0 && w1 > 0) {
-        mu0 /= w0;
-        mu1 /= w1;
-        w0 /= pixelCount;
-        w1 /= pixelCount;
-        
-        final double betweenClassVariance = w0 * w1 * (mu0 - mu1) * (mu0 - mu1);
-        if (betweenClassVariance > bestVariance) {
-          bestVariance = betweenClassVariance;
-          bestThreshold = t.toDouble();
-        }
-      }
-    }
-    
-    // Aplicar umbral y detectar blobs
-    final List<bool> isFg = List.filled(width * height, false);
-    for (int y = roi.y0; y <= roi.y1; y++) {
-      for (int x = roi.x0; x <= roi.x1; x++) {
-        final pixel = lum[y * width + x];
-        isFg[y * width + x] = pixel < bestThreshold;
-      }
-    }
-    
-    return _extractBlobsFromBinary(isFg, width, height, roi: roi);
-  }
-  
-  /// Detección de blobs usando Difference of Gaussians
-  List<_Blob> _detectBlobsDoG(Uint8List lum, int width, int height, {required _Rect roi}) {
-    // Aplicar Gaussian blur con diferentes sigmas
-    final Uint8List blur1 = _gaussianBlur(lum, width, height, sigma: 1.0);
-    final Uint8List blur2 = _gaussianBlur(lum, width, height, sigma: 2.0);
-    
-    // Calcular diferencia
-    final Uint8List dog = Uint8List(width * height);
-    for (int i = 0; i < lum.length; i++) {
-      dog[i] = (blur2[i] - blur1[i]).abs().clamp(0, 255);
-    }
-    
-    // Umbralizar la diferencia
-    final int threshold = _calculateOtsuThreshold(dog, width, height, roi: roi);
-    final List<bool> isFg = List.filled(width * height, false);
-    
-    for (int y = roi.y0; y <= roi.y1; y++) {
-      for (int x = roi.x0; x <= roi.x1; x++) {
-        isFg[y * width + x] = dog[y * width + x] > threshold;
-      }
-    }
-    
-    return _extractBlobsFromBinary(isFg, width, height, roi: roi);
-  }
-  
-  /// Gaussian blur simplificado
-  Uint8List _gaussianBlur(Uint8List lum, int width, int height, {required double sigma}) {
-    final Uint8List result = Uint8List(width * height);
-    final int radius = (sigma * 2).round();
-    
-    // Calcular kernel gaussiano 1D
-    final List<double> kernel = List.filled(radius * 2 + 1, 0);
-    double sum = 0;
-    for (int i = 0; i < kernel.length; i++) {
-      final double x = (i - radius).toDouble();
-      kernel[i] = exp(-(x * x) / (2 * sigma * sigma));
-      sum += kernel[i];
-    }
-    for (int i = 0; i < kernel.length; i++) {
-      kernel[i] /= sum;
-    }
-    
-    // Blur horizontal
-    final Uint8List temp = Uint8List(width * height);
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        double acc = 0;
-        for (int k = -radius; k <= radius; k++) {
-          final int nx = (x + k).clamp(0, width - 1);
-          acc += lum[y * width + nx] * kernel[k + radius];
-        }
-        temp[y * width + x] = acc.round().clamp(0, 255);
-      }
-    }
-    
-    // Blur vertical
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        double acc = 0;
-        for (int k = -radius; k <= radius; k++) {
-          final int ny = (y + k).clamp(0, height - 1);
-          acc += temp[ny * width + x] * kernel[k + radius];
-        }
-        result[y * width + x] = acc.round().clamp(0, 255);
-      }
-    }
-    
-    return result;
-  }
-  
-  /// Calcular umbral Otsu para una región
-  int _calculateOtsuThreshold(Uint8List lum, int width, int height, {required _Rect roi}) {
-    final List<int> histogram = List.filled(256, 0);
-    int pixelCount = 0;
-    
-    for (int y = roi.y0; y <= roi.y1; y++) {
-      for (int x = roi.x0; x <= roi.x1; x++) {
-        final pixel = lum[y * width + x];
-        histogram[pixel]++;
-        pixelCount++;
-      }
-    }
-    
-    double bestThreshold = 0;
-    double bestVariance = 0;
-    
-    for (int t = 0; t < 256; t++) {
-      double w0 = 0, w1 = 0, mu0 = 0, mu1 = 0;
-      
-      for (int i = 0; i < 256; i++) {
-        if (i <= t) {
-          w0 += histogram[i];
-          mu0 += i * histogram[i];
-        } else {
-          w1 += histogram[i];
-          mu1 += i * histogram[i];
-        }
-      }
-      
-      if (w0 > 0 && w1 > 0) {
-        mu0 /= w0;
-        mu1 /= w1;
-        w0 /= pixelCount;
-        w1 /= pixelCount;
-        
-        final double betweenClassVariance = w0 * w1 * (mu0 - mu1) * (mu0 - mu1);
-        if (betweenClassVariance > bestVariance) {
-          bestVariance = betweenClassVariance;
-          bestThreshold = t.toDouble();
-        }
-      }
-    }
-    
-    return bestThreshold.round();
-  }
-  
-  /// Extraer blobs de una imagen binaria
-  List<_Blob> _extractBlobsFromBinary(List<bool> isFg, int width, int height, {required _Rect roi}) {
-    final List<int> labels = List.filled(width * height, -1);
-    final List<_Blob> blobs = [];
-    int labelId = 0;
-
-    final int yMin = max(1, roi.y0);
-    final int yMax = min(height - 2, roi.y1);
-    final int xMin = max(1, roi.x0);
-    final int xMax = min(width - 2, roi.x1);
-
-    for (int y = yMin; y <= yMax; y++) {
-      for (int x = xMin; x <= xMax; x++) {
-        final idx = y * width + x;
-        if (isFg[idx] && labels[idx] == -1) {
-          final blob = _floodFill(isFg, labels, width, height, x, y, labelId);
-          if (blob != null) blobs.add(blob);
-          labelId++;
-        }
-      }
-    }
-
-    // Filtrar por tamaño y forma (más permisivo que el método original)
-    final double roiArea = roi.width.toDouble() * roi.height.toDouble();
-    final double minBlobArea = roiArea * 0.0005; // Más pequeño
-    final double maxBlobArea = roiArea * 0.15;   // Más grande
-
-    final List<_Blob> candidates = [];
-    for (final blob in blobs) {
-      if (blob.area < minBlobArea || blob.area > maxBlobArea) continue;
-
-      // Circularidad más permisiva
-      final double bboxArea = blob.bboxWidth * blob.bboxHeight.toDouble();
-      if (bboxArea == 0) continue;
-
-      final double fillRatio = blob.area / bboxArea;
-      if (fillRatio < 0.40) continue; // Más permisivo
-
-      // Aspect ratio más permisivo
-      final double aspectRatio = blob.bboxWidth / blob.bboxHeight;
-      if (aspectRatio < 0.4 || aspectRatio > 2.5) continue; // Más permisivo
-
-      candidates.add(blob);
-    }
-
-    if (candidates.isEmpty) return [];
-
-    // Filtrar por consistencia de tamaño
-    final diameters = candidates
-        .map((b) => sqrt(b.area))
-        .toList()
-      ..sort();
-    final double medianDiam = diameters[diameters.length ~/ 2];
-
-    final List<_Blob> consistent = candidates.where((b) {
-      final d = sqrt(b.area);
-      return d > medianDiam * 0.4 && d < medianDiam * 2.0; // Más permisivo
-    }).toList();
-
-    return _filterNearbyBlobs(consistent);
-  }
-  
   List<_Blob> _filterNearbyBlobs(List<_Blob> blobs) {
     final List<_Blob> filtered = [];
 
@@ -894,40 +570,407 @@ class _Rect {
   int get height => y1 - y0 + 1;
 }
 
-extension _DominoTileDetection on DominoVisionService {
-  /// Encuentra el bounding box de la ficha de dominó en la imagen.
-  /// Estrategia mejorada: múltiples métodos de detección combinados.
-  _Rect? _findDominoTile(Uint8List lum, int width, int height) {
-    final List<_Rect?> candidates = [];
+  /// Flood-fill para encontrar blobs (con límite de tamaño para evitar overflow)
+  _Blob? _floodFill(List<bool> isFg, List<int> labels, int width, int height,
+      int startX, int startY, int labelId) {
+    final queue = <int>[];
+    final startIdx = startY * width + startX;
+    if (!isFg[startIdx]) return null;
+
+    labels[startIdx] = labelId;
+    queue.add(startIdx);
+
+    int sumX = 0, sumY = 0, area = 0;
+    int minX = startX, maxX = startX, minY = startY, maxY = startY;
+
+    int processedCount = 0;
+    const int maxPixels = 50000; // Límite para evitar overflow
+
+    while (queue.isNotEmpty && processedCount < maxPixels) {
+      final idx = queue.removeLast();
+      final x = idx % width;
+      final y = idx ~/ width;
+
+      sumX += x;
+      sumY += y;
+      area++;
+      minX = min(minX, x);
+      maxX = max(maxX, x);
+      minY = min(minY, y);
+      maxY = max(maxY, y);
+
+      // 8-vecinos
+      for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+          if (dx == 0 && dy == 0) continue;
+          final nx = x + dx;
+          final ny = y + dy;
+          if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+            final nIdx = ny * width + nx;
+            if (isFg[nIdx] && labels[nIdx] == -1) {
+              labels[nIdx] = labelId;
+              queue.add(nIdx);
+            }
+          }
+        }
+      }
+      processedCount++;
+    }
+
+    if (area < 300) return null;
+
+    return _Blob(
+      centerX: sumX / area,
+      centerY: sumY / area,
+      area: area.toDouble(),
+      minX: minX,
+      maxX: maxX,
+      minY: minY,
+      maxY: maxY,
+    );
+  }
+
+  List<_Blob> _filterNearbyBlobs(List<_Blob> blobs) {
+    final List<_Blob> filtered = [];
+
+    for (final blob in blobs) {
+      bool tooClose = false;
+      for (final existing in filtered) {
+        final dx = blob.centerX - existing.centerX;
+        final dy = blob.centerY - existing.centerY;
+        final distance = sqrt(dx * dx + dy * dy);
+        final minDist = (sqrt(blob.area) + sqrt(existing.area)) * 0.35;
+        if (distance < minDist) {
+          tooClose = true;
+          break;
+        }
+      }
+      if (!tooClose) {
+        filtered.add(blob);
+      }
+    }
+
+    return filtered;
+  }
+
+  /// Extraer blobs de una imagen binaria
+  List<_Blob> _extractBlobsFromBinary(List<bool> isFg, int width, int height, {required _Rect roi}) {
+    final List<int> labels = List.filled(width * height, -1);
+    final List<_Blob> blobs = [];
+    int labelId = 0;
+
+    final int yMin = max(1, roi.y0);
+    final int yMax = min(height - 2, roi.y1);
+    final int xMin = max(1, roi.x0);
+    final int xMax = min(width - 2, roi.x1);
+
+    for (int y = yMin; y <= yMax; y++) {
+      for (int x = xMin; x <= xMax; x++) {
+        final idx = y * width + x;
+        if (isFg[idx] && labels[idx] == -1) {
+          final blob = _floodFill(isFg, labels, width, height, x, y, labelId);
+          if (blob != null) blobs.add(blob);
+          labelId++;
+        }
+      }
+    }
+
+    // Filtrar por tamaño y forma (más permisivo para encontrar más puntos)
+    final double roiArea = roi.width.toDouble() * roi.height.toDouble();
+    final double minBlobArea = roiArea * 0.0005; // Más pequeño para detectar más puntos
+    final double maxBlobArea = roiArea * 0.15;   // Más grande
+
+    final List<_Blob> candidates = [];
+    for (final blob in blobs) {
+      if (blob.area < minBlobArea || blob.area > maxBlobArea) continue;
+
+      // Circularidad más permisiva
+      final double bboxArea = blob.bboxWidth * blob.bboxHeight.toDouble();
+      if (bboxArea == 0) continue;
+
+      final double fillRatio = blob.area / bboxArea;
+      if (fillRatio < 0.3) continue; // Más permisivo
+
+      // Aspect ratio más permisivo
+      final double aspectRatio = blob.bboxWidth / blob.bboxHeight;
+      if (aspectRatio < 0.25 || aspectRatio > 4.0) continue; // Más permisivo
+
+      candidates.add(blob);
+    }
+
+    if (candidates.isEmpty) return [];
+
+    // Filtrar por consistencia de tamaño (más permisivo)
+    final diameters = candidates
+        .map((b) => sqrt(b.area))
+        .toList()
+      ..sort();
+    final double medianDiam = diameters[diameters.length ~/ 2];
+
+    final List<_Blob> consistent = candidates.where((b) {
+      final d = sqrt(b.area);
+      return d > medianDiam * 0.25 && d < medianDiam * 3.0; // Más permisivo
+    }).toList();
+
+    return _filterNearbyBlobs(consistent);
+  }
+
+  /// Detección de blobs usando umbral global
+  List<_Blob> _detectBlobsGlobalThreshold(Uint8List lum, int width, int height, {required _Rect roi}) {
+    // Calcular umbral global
+    int sum = 0;
+    int count = 0;
+    for (int y = roi.y0; y <= roi.y1; y++) {
+      for (int x = roi.x0; x <= roi.x1; x++) {
+        sum += lum[y * width + x];
+        count++;
+      }
+    }
+    final double mean = sum / count;
+    final int threshold = mean.round();
+
+    // Aplicar umbral
+    final List<bool> isFg = List.filled(width * height, false);
+    for (int y = roi.y0; y <= roi.y1; y++) {
+      for (int x = roi.x0; x <= roi.x1; x++) {
+        final pixel = lum[y * width + x];
+        isFg[y * width + x] = pixel < threshold - 15 || pixel > threshold + 15;
+      }
+    }
+
+    return _extractBlobsFromBinary(isFg, width, height, roi: roi);
+  }
+
+  /// Detección de blobs usando umbral Otsu
+  List<_Blob> _detectBlobsOtsu(Uint8List lum, int width, int height, {required _Rect roi}) {
+    // Calcular histograma
+    final List<int> histogram = List.filled(256, 0);
+    int pixelCount = 0;
     
-    // Método 1: Detección por umbral global mejorado
-    candidates.add(_findTileByGlobalThreshold(lum, width, height));
+    for (int y = roi.y0; y <= roi.y1; y++) {
+      for (int x = roi.x0; x <= roi.x1; x++) {
+        final pixel = lum[y * width + x];
+        histogram[pixel]++;
+        pixelCount++;
+      }
+    }
     
-    // Método 2: Detección por bordes (Sobel)
-    candidates.add(_findTileByEdgeDetection(lum, width, height));
+    // Calcular umbral Otsu
+    double bestThreshold = 0;
+    double bestVariance = 0;
     
-    // Método 3: Detección por contraste local
-    candidates.add(_findTileByLocalContrast(lum, width, height));
-    
-    // Elegir el mejor candidato basado en puntuación
-    _Rect? bestRect;
-    double bestScore = 0;
-    
-    for (final candidate in candidates) {
-      if (candidate != null) {
-        final score = _scoreTileCandidate(candidate, width, height);
-        if (score > bestScore) {
-          bestScore = score;
-          bestRect = candidate;
+    for (int t = 0; t < 256; t++) {
+      double w0 = 0, w1 = 0, mu0 = 0, mu1 = 0;
+      
+      for (int i = 0; i < 256; i++) {
+        if (i <= t) {
+          w0 += histogram[i];
+          mu0 += i * histogram[i];
+        } else {
+          w1 += histogram[i];
+          mu1 += i * histogram[i];
+        }
+      }
+      
+      if (w0 > 0 && w1 > 0) {
+        mu0 /= w0;
+        mu1 /= w1;
+        w0 /= pixelCount;
+        w1 /= pixelCount;
+        
+        final double betweenClassVariance = w0 * w1 * (mu0 - mu1) * (mu0 - mu1);
+        if (betweenClassVariance > bestVariance) {
+          bestVariance = betweenClassVariance;
+          bestThreshold = t.toDouble();
         }
       }
     }
     
-    return bestRect;
+    // Aplicar umbral
+    final List<bool> isFg = List.filled(width * height, false);
+    for (int y = roi.y0; y <= roi.y1; y++) {
+      for (int x = roi.x0; x <= roi.x1; x++) {
+        final pixel = lum[y * width + x];
+        isFg[y * width + x] = pixel < bestThreshold;
+      }
+    }
+    
+    return _extractBlobsFromBinary(isFg, width, height, roi: roi);
   }
-  
-  /// Método 1: Detección por umbral global mejorado
-  _Rect? _findTileByGlobalThreshold(Uint8List lum, int width, int height) {
+
+  /// Dibujar ficha de domino detectada
+  void _drawDominoTile(img.Image annotated, _Rect tileRect, int width, int height) {
+    // Colores para la ficha
+    final blue = img.ColorRgb8(0, 150, 255);
+    final lightBlue = img.ColorRgb8(100, 180, 255);
+    final darkBlue = img.ColorRgb8(0, 100, 200);
+    
+    // Relleno semitransparente de la ficha
+    for (int y = tileRect.y0; y <= tileRect.y1; y++) {
+      for (int x = tileRect.x0; x <= tileRect.x1; x++) {
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+          final pixel = annotated.getPixel(x, y);
+          annotated.setPixel(x, y, img.ColorRgb8(
+            (pixel.r * 0.6 + lightBlue.r * 0.4).round(),
+            (pixel.g * 0.6 + lightBlue.g * 0.4).round(),
+            (pixel.b * 0.6 + lightBlue.b * 0.4).round(),
+          ));
+        }
+      }
+    }
+    
+    // Borde grueso alrededor de la ficha
+    for (int t = 0; t < 5; t++) {
+      final color = t < 2 ? darkBlue : (t < 4 ? blue : lightBlue);
+      for (int y = tileRect.y0 - t; y <= tileRect.y1 + t; y++) {
+        for (int x = tileRect.x0 - t; x <= tileRect.x1 + t; x++) {
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            if (y == tileRect.y0 - t || y == tileRect.y1 + t || 
+                x == tileRect.x0 - t || x == tileRect.x1 + t) {
+              annotated.setPixel(x, y, color);
+            }
+          }
+        }
+      }
+    }
+    
+    // Etiqueta "FICHA" arriba de la ficha
+    if (tileRect.y0 > 25) {
+      final String label = "FICHA";
+      final int labelX = tileRect.x0 + (tileRect.width - label.length * 10) ~/ 2;
+      final int labelY = tileRect.y0 - 10;
+      
+      // Dibujar texto simple
+      for (int i = 0; i < label.length; i++) {
+        for (int dy = 0; dy < 12; dy++) {
+          for (int dx = 0; dx < 8; dx++) {
+            final int px = labelX + i * 10 + dx;
+            final int py = labelY + dy;
+            if (px >= 0 && px < width && py >= 0 && py < height) {
+              // Letra simple: F, I, C, H, A
+              if (_isPixelInLetter(label[i], dx, dy)) {
+                annotated.setPixel(px, py, darkBlue);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /// Verificar si un píxel está dentro de una letra
+  bool _isPixelInLetter(String letter, int x, int y) {
+    switch (letter) {
+      case 'F':
+        return (x == 0 || x == 6) || (y == 0 || y == 6);
+      case 'I':
+        return x == 3 || (y == 0 || y == 6);
+      case 'C':
+        return (x == 0 || x == 6) || (y == 0 || y == 6);
+      case 'H':
+        return (x == 0 || x == 6) || (y >= 2 && y <= 4);
+      case 'A':
+        return (x == 0 || x == 6) || (y == 0 || y == 3) || (y >= 2 && y <= 4 && x >= 2 && x <= 4);
+      default:
+        return false;
+    }
+  }
+
+  /// Dibujar puntos detectados
+  void _drawDetectedPoints(img.Image annotated, List<_Blob> points, int width, int height) {
+    final green = img.ColorRgb8(0, 255, 0);
+    final brightGreen = img.ColorRgb8(150, 255, 150);
+    final darkGreen = img.ColorRgb8(0, 200, 0);
+    
+    for (int i = 0; i < points.length; i++) {
+      final blob = points[i];
+      final radius = (sqrt(blob.area / pi)).round().clamp(5, 25);
+      final cx = blob.centerX.round();
+      final cy = blob.centerY.round();
+      
+      // Círculo relleno semitransparente
+      for (int dy = -radius; dy <= radius; dy++) {
+        for (int dx = -radius; dx <= radius; dx++) {
+          if (dx * dx + dy * dy <= radius * radius) {
+            final int px = cx + dx;
+            final int py = cy + dy;
+            if (px >= 0 && px < width && py >= 0 && py < height) {
+              final pixel = annotated.getPixel(px, py);
+              annotated.setPixel(px, py, img.ColorRgb8(
+                (pixel.r * 0.3 + brightGreen.r * 0.7).round(),
+                (pixel.g * 0.3 + brightGreen.g * 0.7).round(),
+                (pixel.b * 0.3 + brightGreen.b * 0.7).round(),
+              ));
+            }
+          }
+        }
+      }
+      
+      // Borde del círculo
+      for (int t = 0; t < 3; t++) {
+        img.drawCircle(
+          annotated,
+          x: cx,
+          y: cy,
+          radius: radius + 2 + t,
+          color: t == 0 ? darkGreen : green,
+        );
+      }
+      
+      // Número del punto
+      final String numStr = (i + 1).toString();
+      final int numX = cx - (numStr.length * 4) ~/ 2;
+      final int numY = cy - 4;
+      
+      for (int j = 0; j < numStr.length; j++) {
+        for (int dy = 0; dy < 8; dy++) {
+          for (int dx = 0; dx < 6; dx++) {
+            final int px = numX + j * 8 + dx;
+            final int py = numY + dy;
+            if (px >= 0 && px < width && py >= 0 && py < height) {
+              // Dibujar número simple
+              if (_isPixelInNumber(numStr[j], dx, dy)) {
+                annotated.setPixel(px, py, img.ColorRgb8(255, 255, 255));
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /// Verificar si un píxel está dentro de un número
+  bool _isPixelInNumber(String num, int x, int y) {
+    switch (num) {
+      case '1':
+        return x == 2;
+      case '2':
+        return (y == 0 || y == 7) || (y == 3 && x >= 1 && x <= 4) || (x == 0 || x == 4);
+      case '3':
+        return (y == 0 || y == 3 || y == 7) || (x == 0 || x == 4);
+      case '4':
+        return (x == 0 || x == 4) || (y >= 1 && y <= 5 && x >= 2 && x <= 4);
+      case '5':
+        return (y == 0 || y == 3 || y == 7) || (x == 0 || x == 4);
+      case '6':
+        return (y == 0 || y == 7) || (x == 0 || x == 4) || (y >= 3 && y <= 5 && x >= 2 && x <= 4);
+      case '7':
+        return (y == 0 && x <= 4) || (x == 4);
+      case '8':
+        return (y == 0 || y == 3 || y == 7) || (x == 0 || x == 4);
+      case '9':
+        return (y == 0 || y == 3 || y == 7) || (x == 0 || x == 4) || (y >= 1 && y <= 3 && x >= 2 && x <= 4);
+      default:
+        return false;
+    }
+  }
+
+extension _DominoTileDetection on DominoVisionService {
+  /// Encuentra el bounding box de la ficha de dominó en la imagen.
+  /// Estrategia: umbralizar por media global, probar ambas polaridades
+  /// (ficha clara / ficha oscura) y quedarse con el blob más grande y
+  /// rectangular que tenga un área razonable.
+  _Rect? _findDominoTile(Uint8List lum, int width, int height) {
     // Media global de luminancia
     int sum = 0;
     for (int i = 0; i < lum.length; i++) {
@@ -938,253 +981,73 @@ extension _DominoTileDetection on DominoVisionService {
     _Rect? bestRect;
     double bestScore = 0;
 
-    // Probar múltiples deltas para mayor robustez
-    for (final int delta in [8, 12, 16, 20]) {
-      for (final bool brightTile in [true, false]) {
-        final List<bool> isFg = List.filled(width * height, false);
+    for (final bool brightTile in [true, false]) {
+      final List<bool> isFg = List.filled(width * height, false);
+      const int delta = 10;
 
-        for (int i = 0; i < lum.length; i++) {
-          if (brightTile) {
-            isFg[i] = lum[i] > globalMean + delta;
-          } else {
-            isFg[i] = lum[i] < globalMean - delta;
+      for (int i = 0; i < lum.length; i++) {
+        if (brightTile) {
+          isFg[i] = lum[i] > globalMean + delta;
+        } else {
+          isFg[i] = lum[i] < globalMean - delta;
+        }
+      }
+
+      // Flood-fill global para encontrar el blob más grande
+      final List<int> labels = List.filled(width * height, -1);
+      int labelId = 0;
+      _Blob? largest;
+
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          final idx = y * width + x;
+          if (isFg[idx] && labels[idx] == -1) {
+            final blob = _tileFloodFill(isFg, labels, width, height, x, y, labelId);
+            labelId++;
+            if (blob != null) {
+              if (largest == null || blob.area > largest.area) {
+                largest = blob;
+              }
+            }
           }
         }
+      }
 
-        final blob = _findLargestRectangularBlob(isFg, width, height);
-        if (blob != null) {
-          final score = _scoreTileCandidateFromBlob(blob, width, height);
-          if (score > bestScore) {
-            bestScore = score;
-            final int pad = 3;
-            bestRect = _Rect(
-              x0: max(0, blob.minX + pad),
-              y0: max(0, blob.minY + pad),
-              x1: min(width - 1, blob.maxX - pad),
-              y1: min(height - 1, blob.maxY - pad),
-            );
-          }
-        }
+      if (largest == null) continue;
+
+      final double imageArea = width.toDouble() * height.toDouble();
+      if (largest.area < imageArea * 0.05) continue;
+      if (largest.area > imageArea * 0.95) continue;
+
+      final int bw = largest.bboxWidth;
+      final int bh = largest.bboxHeight;
+      if (bw < 20 || bh < 20) continue;
+
+      final double aspectRatio = bw / bh;
+      if (aspectRatio < 0.3 || aspectRatio > 3.5) continue;
+
+      final double bboxArea = bw * bh.toDouble();
+      final double fillRatio = largest.area / bboxArea;
+      if (fillRatio < 0.65) continue;
+
+      // Score: área * fillRatio (preferimos rectangulos llenos y grandes)
+      final double score = largest.area * fillRatio;
+      if (score > bestScore) {
+        bestScore = score;
+        // Añadir un pequeño margen hacia adentro para evitar tocar el borde
+        final int pad = 2;
+        bestRect = _Rect(
+          x0: max(0, largest.minX + pad),
+          y0: max(0, largest.minY + pad),
+          x1: min(width - 1, largest.maxX - pad),
+          y1: min(height - 1, largest.maxY - pad),
+        );
       }
     }
 
     return bestRect;
   }
-  
-  /// Método 2: Detección por bordes (Sobel simplificado)
-  _Rect? _findTileByEdgeDetection(Uint8List lum, int width, int height) {
-    // Aplicar Sobel para detectar bordes
-    final Uint8List edges = Uint8List(width * height);
-    
-    for (int y = 1; y < height - 1; y++) {
-      for (int x = 1; x < width - 1; x++) {
-        // Sobel X
-        final gx = -lum[(y-1)*width + (x-1)] + lum[(y-1)*width + (x+1)] +
-                   -2*lum[y*width + (x-1)] + 2*lum[y*width + (x+1)] +
-                   -lum[(y+1)*width + (x-1)] + lum[(y+1)*width + (x+1)];
-        
-        // Sobel Y
-        final gy = -lum[(y-1)*width + (x-1)] - 2*lum[(y-1)*width + x] - lum[(y-1)*width + (x+1)] +
-                   lum[(y+1)*width + (x-1)] + 2*lum[(y+1)*width + x] + lum[(y+1)*width + (x+1)];
-        
-        final magnitude = (sqrt(gx*gx + gy*gy)).round().clamp(0, 255);
-        edges[y*width + x] = magnitude;
-      }
-    }
-    
-    // Umbralizar bordes
-    final int edgeThreshold = 30;
-    final List<bool> isEdge = List.filled(width * height, false);
-    for (int i = 0; i < edges.length; i++) {
-      isEdge[i] = edges[i] > edgeThreshold;
-    }
-    
-    // Dilatar los bordes para conectar regiones
-    final List<bool> dilated = _dilateBinary(isEdge, width, height, radius: 2);
-    
-    // Encontrar la región rectangular más grande
-    final blob = _findLargestRectangularBlob(dilated, width, height);
-    if (blob != null) {
-      final int pad = 5;
-      return _Rect(
-        x0: max(0, blob.minX + pad),
-        y0: max(0, blob.minY + pad),
-        x1: min(width - 1, blob.maxX - pad),
-        y1: min(height - 1, blob.maxY - pad),
-      );
-    }
-    
-    return null;
-  }
-  
-  /// Método 3: Detección por contraste local
-  _Rect? _findTileByLocalContrast(Uint8List lum, int width, int height) {
-    const int windowSize = 15;
-    final List<bool> isFg = List.filled(width * height, false);
-    
-    // Calcular desviación estándar local
-    for (int y = windowSize; y < height - windowSize; y++) {
-      for (int x = windowSize; x < width - windowSize; x++) {
-        final double localStd = _calculateLocalStdDev(lum, width, height, x, y, windowSize);
-        final double globalMean = _calculateGlobalMean(lum);
-        final int pixel = lum[y * width + x];
-        
-        // Píxeles con alto contraste local
-        if ((pixel - globalMean).abs() > localStd * 0.5) {
-          isFg[y * width + x] = true;
-        }
-      }
-    }
-    
-    final blob = _findLargestRectangularBlob(isFg, width, height);
-    if (blob != null) {
-      final int pad = 3;
-      return _Rect(
-        x0: max(0, blob.minX + pad),
-        y0: max(0, blob.minY + pad),
-        x1: min(width - 1, blob.maxX - pad),
-        y1: min(height - 1, blob.maxY - pad),
-      );
-    }
-    
-    return null;
-  }
 
-  /// Funciones auxiliares para la detección mejorada
-  
-  _Blob? _findLargestRectangularBlob(List<bool> isFg, int width, int height) {
-    final List<int> labels = List.filled(width * height, -1);
-    int labelId = 0;
-    _Blob? largest;
-
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        final idx = y * width + x;
-        if (isFg[idx] && labels[idx] == -1) {
-          final blob = _tileFloodFill(isFg, labels, width, height, x, y, labelId);
-          labelId++;
-          if (blob != null) {
-            if (largest == null || blob.area > largest.area) {
-              largest = blob;
-            }
-          }
-        }
-      }
-    }
-
-    if (largest == null) return null;
-
-    final double imageArea = width.toDouble() * height.toDouble();
-    if (largest.area < imageArea * 0.03) return null;
-    if (largest.area > imageArea * 0.90) return null;
-
-    final int bw = largest.bboxWidth;
-    final int bh = largest.bboxHeight;
-    if (bw < 15 || bh < 15) return null;
-
-    final double aspectRatio = bw / bh;
-    if (aspectRatio < 0.25 || aspectRatio > 4.0) return null;
-
-    final double bboxArea = bw * bh.toDouble();
-    final double fillRatio = largest.area / bboxArea;
-    if (fillRatio < 0.60) return null;
-
-    return largest;
-  }
-  
-  double _scoreTileCandidate(_Rect rect, int width, int height) {
-    final double imageArea = width.toDouble() * height.toDouble();
-    final double rectArea = rect.width.toDouble() * rect.height.toDouble();
-    final double areaRatio = rectArea / imageArea;
-    
-    // Puntuación basada en área y aspecto
-    double score = areaRatio;
-    
-    // Bonus por aspecto de dominó (2:1)
-    final double aspectRatio = rect.width.toDouble() / rect.height.toDouble();
-    final double idealRatio = 2.0;
-    final double ratioDiff = (aspectRatio - idealRatio).abs();
-    score *= (1.0 - ratioDiff * 0.1);
-    
-    // Bonus por área razonable
-    if (areaRatio > 0.1 && areaRatio < 0.7) {
-      score *= 1.5;
-    }
-    
-    return score;
-  }
-  
-  double _scoreTileCandidateFromBlob(_Blob blob, int width, int height) {
-    final double imageArea = width.toDouble() * height.toDouble();
-    final double areaRatio = blob.area / imageArea;
-    
-    double score = areaRatio;
-    
-    final double aspectRatio = blob.bboxWidth / blob.bboxHeight;
-    final double idealRatio = 2.0;
-    final double ratioDiff = (aspectRatio - idealRatio).abs();
-    score *= (1.0 - ratioDiff * 0.1);
-    
-    final double bboxArea = blob.bboxWidth * blob.bboxHeight.toDouble();
-    final double fillRatio = blob.area / bboxArea;
-    score *= fillRatio;
-    
-    return score;
-  }
-  
-  List<bool> _dilateBinary(List<bool> binary, int width, int height, {required int radius}) {
-    final List<bool> result = List.filled(width * height, false);
-    
-    for (int y = radius; y < height - radius; y++) {
-      for (int x = radius; x < width - radius; x++) {
-        bool found = false;
-        for (int dy = -radius; dy <= radius && !found; dy++) {
-          for (int dx = -radius; dx <= radius && !found; dx++) {
-            if (binary[(y + dy) * width + (x + dx)]) {
-              found = true;
-            }
-          }
-        }
-        result[y * width + x] = found;
-      }
-    }
-    
-    return result;
-  }
-  
-  double _calculateLocalStdDev(Uint8List lum, int width, int height, int x, int y, int windowSize) {
-    double sum = 0;
-    double sumSq = 0;
-    int count = 0;
-    
-    for (int dy = -windowSize; dy <= windowSize; dy++) {
-      for (int dx = -windowSize; dx <= windowSize; dx++) {
-        final int nx = x + dx;
-        final int ny = y + dy;
-        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-          final int pixel = lum[ny * width + nx];
-          sum += pixel;
-          sumSq += pixel * pixel;
-          count++;
-        }
-      }
-    }
-    
-    if (count == 0) return 0;
-    
-    final double mean = sum / count;
-    final double variance = (sumSq / count) - (mean * mean);
-    return sqrt(variance);
-  }
-  
-  double _calculateGlobalMean(Uint8List lum) {
-    int sum = 0;
-    for (int i = 0; i < lum.length; i++) {
-      sum += lum[i];
-    }
-    return sum / lum.length;
-  }
-  
   /// Flood-fill sin límite de tamaño (usado para detectar la ficha entera).
   _Blob? _tileFloodFill(List<bool> isFg, List<int> labels, int width,
       int height, int startX, int startY, int labelId) {
@@ -1242,7 +1105,7 @@ extension _DominoTileDetection on DominoVisionService {
       }
     }
 
-    if (area < 300) return null;
+    if (area < 400) return null;
 
     return _Blob(
       centerX: sumX / area,
