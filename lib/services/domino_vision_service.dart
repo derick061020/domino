@@ -77,9 +77,9 @@ class DominoVisionService {
 
       // Umbral para "negro": cada canal debe ser menor a esto.
       // 80 es bastante estricto — negro real.
-      const int blackThresh = 85;
+      const int blackThresh = 80;
       // Máxima diferencia entre canales (para excluir colores oscuros)
-      const int maxColorSpread = 50;
+      const int maxColorSpread = 40;
 
       final List<bool> isBlack = List.filled(w * h, false);
       for (int i = 0; i < w * h; i++) {
@@ -125,13 +125,13 @@ class DominoVisionService {
         final double bboxArea = b.bboxW * b.bboxH.toDouble();
         if (bboxArea == 0) continue;
 
-        // Circularidad (fill ratio)
+        // Circularidad: un punto redondo llena ~78% de su bbox
         final double fill = b.area / bboxArea;
-        if (fill < 0.55) continue;
+        if (fill < 0.60) continue;
 
-        // Redondez (aspect ratio)
+        // Aspect ratio: debe ser redondo
         final double ar = b.bboxW / b.bboxH;
-        if (ar < 0.4 || ar > 2.5) continue;
+        if (ar < 0.5 || ar > 2.0) continue;
 
         candidates.add(b);
       }
@@ -146,13 +146,27 @@ class DominoVisionService {
         );
       }
 
-      // Consistencia de tamaño
-      final diameters = candidates.map((b) => sqrt(b.area)).toList()..sort();
-      final double median = diameters[diameters.length ~/ 2];
+      // Clustering por tamaño: los puntos de dominó son TODOS iguales.
+      // Para cada candidato, contar cuántos otros tienen tamaño similar
+      // (±50%). El "grupo" más grande son los puntos reales.
+      final List<double> areas = candidates.map((b) => b.area).toList();
+      int bestCount = 0;
+      double bestRef = areas.first;
 
+      for (final ref in areas) {
+        int count = 0;
+        for (final a in areas) {
+          if (a > ref * 0.5 && a < ref * 1.8) count++;
+        }
+        if (count > bestCount) {
+          bestCount = count;
+          bestRef = ref;
+        }
+      }
+
+      // Quedarse SOLO con los que pertenecen al grupo ganador
       final List<_Blob> consistent = candidates.where((b) {
-        final d = sqrt(b.area);
-        return d > median * 0.35 && d < median * 2.5;
+        return b.area > bestRef * 0.5 && b.area < bestRef * 1.8;
       }).toList();
 
       // Eliminar duplicados cercanos
