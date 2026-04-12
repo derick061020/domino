@@ -48,7 +48,6 @@ class DominoVisionService {
         throw Exception('No se pudo cargar la imagen');
       }
 
-      // Redimensionar a ancho fijo para consistencia
       img.Image image = original;
       if (image.width > 640) {
         image = img.copyResize(image, width: 640);
@@ -67,17 +66,13 @@ class DominoVisionService {
         }
       }
 
-      // 2. Percentil 90 del brillo = referencia de "superficie de ficha"
-      //    Usamos p90 porque con varias fichas la mesa oscura ocupa más
-      //    y baja los percentiles inferiores. El p90 siempre captura
-      //    la superficie blanca de las fichas.
+      // 2. Referencia de brillo de la ficha (percentil 90)
       final List<int> sorted = List.of(gray)..sort();
       final int p90 = sorted[(sorted.length * 0.90).toInt()];
-      // Un punto negro marcado debe estar por debajo del 60% del brillo
-      // de la ficha. Si la ficha es ~200, el corte queda en ~120.
-      final int absoluteMax = (p90 * 0.60).round().clamp(50, 150);
+      // Umbral absoluto: un punto oscuro debe ser < 65% del brillo de ficha
+      final int absoluteMax = (p90 * 0.65).round().clamp(50, 170);
 
-      // 3. Integral image para umbral adaptativo
+      // 3. Integral image
       final List<int> integral = List.filled((w + 1) * (h + 1), 0);
       for (int y = 0; y < h; y++) {
         int rowSum = 0;
@@ -88,21 +83,21 @@ class DominoVisionService {
         }
       }
 
-      // 4. Marcar píxeles que son NEGRO MUY MARCADO:
-      //    - Deben ser oscuros en valor absoluto (< absoluteMax)
-      //    - Deben ser más oscuros que su vecindario local
-      final int winR = 20;
-      const int adaptiveDelta = 18;
-
+      // 4. Detectar píxeles oscuros con DOS pasadas:
+      //    Pasada A: adaptativo estricto (delta=20) — atrapa puntos claros
+      //    Pasada B: absoluto estricto (< 50% p90) — atrapa puntos en bordes
+      //    Un píxel es oscuro si pasa el absoluto Y al menos uno de los adaptativos
+      final int winR = 18;
       final List<bool> isDark = List.filled(w * h, false);
+
       for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
           final int pixel = gray[y * w + x];
 
-          // Filtro 1: debe ser oscuro en absoluto
+          // Debe pasar el filtro absoluto
           if (pixel > absoluteMax) continue;
 
-          // Filtro 2: debe ser más oscuro que su entorno
+          // Media local
           final int x0 = max(0, x - winR);
           final int y0 = max(0, y - winR);
           final int x1 = min(w - 1, x + winR);
@@ -115,13 +110,19 @@ class DominoVisionService {
           final int area = (x1 - x0 + 1) * (y1 - y0 + 1);
           final double localMean = sum / area;
 
-          if (pixel < localMean - adaptiveDelta) {
+          // Adaptativo suave: 15 niveles debajo de la media local
+          if (pixel < localMean - 15) {
+            isDark[y * w + x] = true;
+          }
+          // O: muy oscuro en absoluto (< 40% del brillo de ficha)
+          // aunque no pase el adaptativo (atrapa puntos cerca del borde)
+          else if (pixel < p90 * 0.40) {
             isDark[y * w + x] = true;
           }
         }
       }
 
-      // 6. Flood-fill para agrupar píxeles oscuros en blobs
+      // 5. Flood-fill
       final List<int> labels = List.filled(w * h, -1);
       final List<_Blob> blobs = [];
       int labelId = 0;
@@ -130,17 +131,16 @@ class DominoVisionService {
         for (int x = 1; x < w - 1; x++) {
           final int idx = y * w + x;
           if (!isDark[idx] || labels[idx] != -1) continue;
-
           final blob = _floodFill(isDark, labels, w, h, x, y, labelId);
           labelId++;
           if (blob != null) blobs.add(blob);
         }
       }
 
-      // 7. Filtrar blobs por forma circular y tamaño razonable
+      // 6. Filtrar por forma circular y tamaño
       final double imgArea = w.toDouble() * h.toDouble();
-      final double minArea = imgArea * 0.00008; // mínimo (varias fichas = puntos pequeños)
-      final double maxArea = imgArea * 0.04;    // máximo
+      final double minArea = imgArea * 0.00006;
+      final double maxArea = imgArea * 0.05;
 
       final List<_Blob> candidates = [];
       for (final b in blobs) {
@@ -149,15 +149,15 @@ class DominoVisionService {
         final double bboxArea = b.bboxW * b.bboxH.toDouble();
         if (bboxArea == 0) continue;
 
-        // Fill ratio: un círculo en su bbox tiene ~0.785
+        // Circularidad
         final double fill = b.area / bboxArea;
-        if (fill < 0.60) continue;
+        if (fill < 0.55) continue;
 
-        // Aspect ratio: debe ser casi cuadrado (es un punto redondo)
+        // Redondez
         final double ar = b.bboxW / b.bboxH;
-        if (ar < 0.5 || ar > 2.0) continue;
+        if (ar < 0.45 || ar > 2.2) continue;
 
-        // Verificar que el CENTRO del blob es realmente muy oscuro
+        // Centro del blob debe ser oscuro
         final int cx = b.cx.round().clamp(0, w - 1);
         final int cy = b.cy.round().clamp(0, h - 1);
         if (gray[cy * w + cx] > absoluteMax) continue;
@@ -175,18 +175,16 @@ class DominoVisionService {
         );
       }
 
-      // 8. Filtrar por consistencia de tamaño:
-      //    Los puntos de un dominó son TODOS del mismo tamaño.
-      //    Quedarnos solo con los que están cerca de la mediana.
+      // 7. Consistencia de tamaño (más permisivo para varias fichas)
       final diameters = candidates.map((b) => sqrt(b.area)).toList()..sort();
       final double median = diameters[diameters.length ~/ 2];
 
       final List<_Blob> consistent = candidates.where((b) {
         final d = sqrt(b.area);
-        return d > median * 0.5 && d < median * 1.8;
+        return d > median * 0.35 && d < median * 2.5;
       }).toList();
 
-      // 9. Eliminar duplicados (blobs muy cercanos entre sí)
+      // 8. Eliminar duplicados
       final List<_Blob> finalDots = [];
       for (final b in consistent) {
         bool duplicate = false;
@@ -194,7 +192,7 @@ class DominoVisionService {
           final dx = b.cx - existing.cx;
           final dy = b.cy - existing.cy;
           final dist = sqrt(dx * dx + dy * dy);
-          final minDist = (sqrt(b.area) + sqrt(existing.area)) * 0.5;
+          final minDist = (sqrt(b.area) + sqrt(existing.area)) * 0.4;
           if (dist < minDist) {
             duplicate = true;
             break;
@@ -203,7 +201,7 @@ class DominoVisionService {
         if (!duplicate) finalDots.add(b);
       }
 
-      // 10. Dibujar círculos verdes sobre los puntos detectados
+      // 9. Anotar imagen
       String? annotatedPath;
       final annotated = img.Image.from(image);
       final green = img.ColorRgb8(0, 255, 0);
@@ -251,8 +249,6 @@ class DominoVisionService {
     }
   }
 
-  // ─────────────────────────────────────────────────────
-
   _Blob? _floodFill(List<bool> mask, List<int> labels, int w, int h,
       int startX, int startY, int id) {
     final List<int> queue = [startY * w + startX];
@@ -263,7 +259,6 @@ class DominoVisionService {
 
     int head = 0;
     while (head < queue.length) {
-      // Limitar para no explotar en zonas enormes (no es un punto)
       if (area > 5000) return null;
 
       final int idx = queue[head++];
@@ -307,125 +302,218 @@ class DominoVisionService {
   }
 
   // ─────────────────────────────────────────────────────
-  //  UI: DIÁLOGO DE ANÁLISIS
+  //  UI: DIÁLOGO CON AJUSTE MANUAL DE PUNTOS
   // ─────────────────────────────────────────────────────
 
   Future<DominoDetectionResult?> showImageAnalysisDialog(
       BuildContext context, DominoDetectionResult result) async {
     final loc = AppLocalizations.of(context);
+    final int detected =
+        result.detectedPoints.isNotEmpty ? result.detectedPoints.first : 0;
+
     return showDialog<DominoDetectionResult>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF2D2D44),
-          title: Text(
-            loc.get('analyze_points'),
+      builder: (BuildContext dialogContext) {
+        return _AnalysisDialog(
+          loc: loc,
+          result: result,
+          initialPoints: detected,
+        );
+      },
+    );
+  }
+}
+
+/// Dialog con estado para permitir ajuste de puntos con +/-
+class _AnalysisDialog extends StatefulWidget {
+  final AppLocalizations loc;
+  final DominoDetectionResult result;
+  final int initialPoints;
+
+  const _AnalysisDialog({
+    required this.loc,
+    required this.result,
+    required this.initialPoints,
+  });
+
+  @override
+  State<_AnalysisDialog> createState() => _AnalysisDialogState();
+}
+
+class _AnalysisDialogState extends State<_AnalysisDialog> {
+  late int _points;
+
+  @override
+  void initState() {
+    super.initState();
+    _points = widget.initialPoints;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = widget.loc;
+    final result = widget.result;
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF2D2D44),
+      title: Text(
+        loc.get('analyze_points'),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Poppins',
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Imagen
+          Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxHeight: 200, maxWidth: 200),
+                child: Image.file(
+                  File(result.annotatedImagePath ?? result.imagePath),
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Info
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE53935).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color: const Color(0xFFE53935).withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              result.analysisInfo,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Selector de puntos con +/-
+          Text(
+            loc.get('detected_points'),
             style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+              color: Colors.white70,
+              fontSize: 13,
               fontFamily: 'Poppins',
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: ConstrainedBox(
-                    constraints:
-                        const BoxConstraints(maxHeight: 220, maxWidth: 220),
-                    child: Image.file(
-                      File(result.annotatedImagePath ?? result.imagePath),
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
+              // Botón -
+              _buildCircleButton(
+                icon: Icons.remove,
+                onTap: () {
+                  if (_points > 0) setState(() => _points--);
+                },
               ),
-              const SizedBox(height: 12),
+              // Número grande
               Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE53935).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: const Color(0xFFE53935).withValues(alpha: 0.3)),
-                ),
+                width: 80,
+                alignment: Alignment.center,
                 child: Text(
-                  result.analysisInfo,
+                  '$_points',
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (result.detectedPoints.isEmpty)
-                Text(
-                  loc.get('no_points_detected'),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontFamily: 'Poppins',
-                  ),
-                )
-              else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      loc.get('detected_points'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...result.detectedPoints.map((points) => Text(
-                          '· $points ${loc.get('points')}',
-                          style: const TextStyle(
-                            color: Color(0xFFE53935),
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Poppins',
-                          ),
-                        )),
-                  ],
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                loc.get('cancel'),
-                style: const TextStyle(
-                  color: Color(0xFFE53935),
-                  fontFamily: 'Poppins',
-                ),
-              ),
-            ),
-            if (result.detectedPoints.isNotEmpty)
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(result),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE53935),
-                ),
-                child: Text(
-                  loc.get('use_these_points'),
-                  style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFFE53935),
+                    fontSize: 48,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Poppins',
                   ),
                 ),
               ),
-          ],
-        );
-      },
+              // Botón +
+              _buildCircleButton(
+                icon: Icons.add,
+                onTap: () {
+                  if (_points < 100) setState(() => _points++);
+                },
+              ),
+            ],
+          ),
+          Text(
+            loc.get('points'),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 14,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            loc.get('cancel'),
+            style: const TextStyle(
+              color: Color(0xFFE53935),
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ),
+        if (_points > 0)
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop(DominoDetectionResult(
+                detectedPoints: [_points],
+                imagePath: result.imagePath,
+                annotatedImagePath: result.annotatedImagePath,
+                analysisInfo: result.analysisInfo,
+              ));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+            ),
+            child: Text(
+              '${loc.get('use_these_points')} ($_points)',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCircleButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFE53935), width: 2),
+          ),
+          child: Icon(icon, color: const Color(0xFFE53935), size: 28),
+        ),
+      ),
     );
   }
 }
