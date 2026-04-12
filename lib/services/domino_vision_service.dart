@@ -3,7 +3,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 import '../languages/app_localizations.dart';
 
 class DominoDetectionResult {
@@ -41,8 +40,8 @@ class DominoVisionService {
       {AppLocalizations? loc}) async {
     try {
       final File imageFile = File(imagePath);
-      final Uint8List imageBytes = await imageFile.readAsBytes();
-      img.Image? original = img.decodeImage(imageBytes);
+      final bytes = await imageFile.readAsBytes();
+      img.Image? original = img.decodeImage(bytes);
 
       if (original == null) {
         throw Exception('No se pudo cargar la imagen');
@@ -56,73 +55,50 @@ class DominoVisionService {
       final int w = image.width;
       final int h = image.height;
 
-      // 1. Escala de grises
-      final Uint8List gray = Uint8List(w * h);
+      // ── DETECCIÓN DIRECTA EN RGB ──
+      // Un punto negro de dominó tiene R, G, B todos bajos
+      // y NO es un color oscuro (como marrón o azul marino).
+      // Criterio: cada canal < umbral Y la diferencia entre canales es baja.
+
+      // Leer RGB en arrays para acceso rápido
+      final List<int> rr = List.filled(w * h, 0);
+      final List<int> gg = List.filled(w * h, 0);
+      final List<int> bb = List.filled(w * h, 0);
+
       for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
           final p = image.getPixel(x, y);
-          gray[y * w + x] =
-              (0.299 * p.r + 0.587 * p.g + 0.114 * p.b).round().clamp(0, 255);
+          final int idx = y * w + x;
+          rr[idx] = p.r.toInt();
+          gg[idx] = p.g.toInt();
+          bb[idx] = p.b.toInt();
         }
       }
 
-      // 2. Referencia de brillo de la ficha (percentil 90)
-      final List<int> sorted = List.of(gray)..sort();
-      final int p90 = sorted[(sorted.length * 0.90).toInt()];
-      // Umbral absoluto: un punto oscuro debe ser < 65% del brillo de ficha
-      final int absoluteMax = (p90 * 0.65).round().clamp(50, 170);
+      // Umbral para "negro": cada canal debe ser menor a esto.
+      // 80 es bastante estricto — negro real.
+      const int blackThresh = 85;
+      // Máxima diferencia entre canales (para excluir colores oscuros)
+      const int maxColorSpread = 50;
 
-      // 3. Integral image
-      final List<int> integral = List.filled((w + 1) * (h + 1), 0);
-      for (int y = 0; y < h; y++) {
-        int rowSum = 0;
-        for (int x = 0; x < w; x++) {
-          rowSum += gray[y * w + x];
-          integral[(y + 1) * (w + 1) + (x + 1)] =
-              integral[y * (w + 1) + (x + 1)] + rowSum;
-        }
+      final List<bool> isBlack = List.filled(w * h, false);
+      for (int i = 0; i < w * h; i++) {
+        final int r = rr[i];
+        final int g = gg[i];
+        final int b = bb[i];
+
+        // Todos los canales deben ser bajos
+        if (r > blackThresh || g > blackThresh || b > blackThresh) continue;
+
+        // No debe ser un color oscuro (ej: rojo oscuro = R:80 G:10 B:10)
+        final int maxC = max(r, max(g, b));
+        final int minC = min(r, min(g, b));
+        if (maxC - minC > maxColorSpread) continue;
+
+        isBlack[i] = true;
       }
 
-      // 4. Detectar píxeles oscuros con DOS pasadas:
-      //    Pasada A: adaptativo estricto (delta=20) — atrapa puntos claros
-      //    Pasada B: absoluto estricto (< 50% p90) — atrapa puntos en bordes
-      //    Un píxel es oscuro si pasa el absoluto Y al menos uno de los adaptativos
-      final int winR = 18;
-      final List<bool> isDark = List.filled(w * h, false);
-
-      for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-          final int pixel = gray[y * w + x];
-
-          // Debe pasar el filtro absoluto
-          if (pixel > absoluteMax) continue;
-
-          // Media local
-          final int x0 = max(0, x - winR);
-          final int y0 = max(0, y - winR);
-          final int x1 = min(w - 1, x + winR);
-          final int y1 = min(h - 1, y + winR);
-          final int w1 = w + 1;
-          final int sum = integral[(y1 + 1) * w1 + (x1 + 1)]
-              - integral[y0 * w1 + (x1 + 1)]
-              - integral[(y1 + 1) * w1 + x0]
-              + integral[y0 * w1 + x0];
-          final int area = (x1 - x0 + 1) * (y1 - y0 + 1);
-          final double localMean = sum / area;
-
-          // Adaptativo suave: 15 niveles debajo de la media local
-          if (pixel < localMean - 15) {
-            isDark[y * w + x] = true;
-          }
-          // O: muy oscuro en absoluto (< 40% del brillo de ficha)
-          // aunque no pase el adaptativo (atrapa puntos cerca del borde)
-          else if (pixel < p90 * 0.40) {
-            isDark[y * w + x] = true;
-          }
-        }
-      }
-
-      // 5. Flood-fill
+      // Flood-fill para agrupar píxeles negros en blobs
       final List<int> labels = List.filled(w * h, -1);
       final List<_Blob> blobs = [];
       int labelId = 0;
@@ -130,16 +106,16 @@ class DominoVisionService {
       for (int y = 1; y < h - 1; y++) {
         for (int x = 1; x < w - 1; x++) {
           final int idx = y * w + x;
-          if (!isDark[idx] || labels[idx] != -1) continue;
-          final blob = _floodFill(isDark, labels, w, h, x, y, labelId);
+          if (!isBlack[idx] || labels[idx] != -1) continue;
+          final blob = _floodFill(isBlack, labels, w, h, x, y, labelId);
           labelId++;
           if (blob != null) blobs.add(blob);
         }
       }
 
-      // 6. Filtrar por forma circular y tamaño
+      // Filtrar por forma circular y tamaño
       final double imgArea = w.toDouble() * h.toDouble();
-      final double minArea = imgArea * 0.00006;
+      final double minArea = imgArea * 0.00005;
       final double maxArea = imgArea * 0.05;
 
       final List<_Blob> candidates = [];
@@ -149,18 +125,13 @@ class DominoVisionService {
         final double bboxArea = b.bboxW * b.bboxH.toDouble();
         if (bboxArea == 0) continue;
 
-        // Circularidad
+        // Circularidad (fill ratio)
         final double fill = b.area / bboxArea;
         if (fill < 0.55) continue;
 
-        // Redondez
+        // Redondez (aspect ratio)
         final double ar = b.bboxW / b.bboxH;
-        if (ar < 0.45 || ar > 2.2) continue;
-
-        // Centro del blob debe ser oscuro
-        final int cx = b.cx.round().clamp(0, w - 1);
-        final int cy = b.cy.round().clamp(0, h - 1);
-        if (gray[cy * w + cx] > absoluteMax) continue;
+        if (ar < 0.4 || ar > 2.5) continue;
 
         candidates.add(b);
       }
@@ -175,7 +146,7 @@ class DominoVisionService {
         );
       }
 
-      // 7. Consistencia de tamaño (más permisivo para varias fichas)
+      // Consistencia de tamaño
       final diameters = candidates.map((b) => sqrt(b.area)).toList()..sort();
       final double median = diameters[diameters.length ~/ 2];
 
@@ -184,7 +155,7 @@ class DominoVisionService {
         return d > median * 0.35 && d < median * 2.5;
       }).toList();
 
-      // 8. Eliminar duplicados
+      // Eliminar duplicados cercanos
       final List<_Blob> finalDots = [];
       for (final b in consistent) {
         bool duplicate = false;
@@ -201,7 +172,7 @@ class DominoVisionService {
         if (!duplicate) finalDots.add(b);
       }
 
-      // 9. Anotar imagen
+      // Anotar imagen
       String? annotatedPath;
       final annotated = img.Image.from(image);
       final green = img.ColorRgb8(0, 255, 0);
@@ -302,7 +273,7 @@ class DominoVisionService {
   }
 
   // ─────────────────────────────────────────────────────
-  //  UI: DIÁLOGO CON AJUSTE MANUAL DE PUNTOS
+  //  UI: DIÁLOGO CON AJUSTE MANUAL
   // ─────────────────────────────────────────────────────
 
   Future<DominoDetectionResult?> showImageAnalysisDialog(
@@ -313,18 +284,15 @@ class DominoVisionService {
 
     return showDialog<DominoDetectionResult>(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return _AnalysisDialog(
-          loc: loc,
-          result: result,
-          initialPoints: detected,
-        );
-      },
+      builder: (_) => _AnalysisDialog(
+        loc: loc,
+        result: result,
+        initialPoints: detected,
+      ),
     );
   }
 }
 
-/// Dialog con estado para permitir ajuste de puntos con +/-
 class _AnalysisDialog extends StatefulWidget {
   final AppLocalizations loc;
   final DominoDetectionResult result;
@@ -367,7 +335,6 @@ class _AnalysisDialogState extends State<_AnalysisDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Imagen
           Center(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
@@ -382,8 +349,6 @@ class _AnalysisDialogState extends State<_AnalysisDialog> {
             ),
           ),
           const SizedBox(height: 12),
-
-          // Info
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(10),
@@ -404,8 +369,6 @@ class _AnalysisDialogState extends State<_AnalysisDialog> {
             ),
           ),
           const SizedBox(height: 20),
-
-          // Selector de puntos con +/-
           Text(
             loc.get('detected_points'),
             style: const TextStyle(
@@ -418,14 +381,9 @@ class _AnalysisDialogState extends State<_AnalysisDialog> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Botón -
-              _buildCircleButton(
-                icon: Icons.remove,
-                onTap: () {
-                  if (_points > 0) setState(() => _points--);
-                },
-              ),
-              // Número grande
+              _circleBtn(Icons.remove, () {
+                if (_points > 0) setState(() => _points--);
+              }),
               Container(
                 width: 80,
                 alignment: Alignment.center,
@@ -439,13 +397,9 @@ class _AnalysisDialogState extends State<_AnalysisDialog> {
                   ),
                 ),
               ),
-              // Botón +
-              _buildCircleButton(
-                icon: Icons.add,
-                onTap: () {
-                  if (_points < 100) setState(() => _points++);
-                },
-              ),
+              _circleBtn(Icons.add, () {
+                if (_points < 100) setState(() => _points++);
+              }),
             ],
           ),
           Text(
@@ -495,10 +449,7 @@ class _AnalysisDialogState extends State<_AnalysisDialog> {
     );
   }
 
-  Widget _buildCircleButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
+  Widget _circleBtn(IconData icon, VoidCallback onTap) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
