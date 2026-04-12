@@ -67,13 +67,15 @@ class DominoVisionService {
         }
       }
 
-      // 2. Percentil 80 del brillo = referencia de "superficie de ficha"
-      //    Así no importa cuánta mesa oscura haya en la foto.
+      // 2. Percentil 90 del brillo = referencia de "superficie de ficha"
+      //    Usamos p90 porque con varias fichas la mesa oscura ocupa más
+      //    y baja los percentiles inferiores. El p90 siempre captura
+      //    la superficie blanca de las fichas.
       final List<int> sorted = List.of(gray)..sort();
-      final int p80 = sorted[(sorted.length * 0.80).toInt()];
-      // Un punto negro marcado debe estar por debajo del 55% del brillo
-      // de la ficha. Si la ficha es ~200, el corte queda en ~110.
-      final int absoluteMax = (p80 * 0.55).round().clamp(50, 140);
+      final int p90 = sorted[(sorted.length * 0.90).toInt()];
+      // Un punto negro marcado debe estar por debajo del 60% del brillo
+      // de la ficha. Si la ficha es ~200, el corte queda en ~120.
+      final int absoluteMax = (p90 * 0.60).round().clamp(50, 150);
 
       // 3. Integral image para umbral adaptativo
       final List<int> integral = List.filled((w + 1) * (h + 1), 0);
@@ -89,8 +91,8 @@ class DominoVisionService {
       // 4. Marcar píxeles que son NEGRO MUY MARCADO:
       //    - Deben ser oscuros en valor absoluto (< absoluteMax)
       //    - Deben ser más oscuros que su vecindario local
-      final int winR = 25;
-      const int adaptiveDelta = 20;
+      final int winR = 20;
+      const int adaptiveDelta = 18;
 
       final List<bool> isDark = List.filled(w * h, false);
       for (int y = 0; y < h; y++) {
@@ -137,8 +139,8 @@ class DominoVisionService {
 
       // 7. Filtrar blobs por forma circular y tamaño razonable
       final double imgArea = w.toDouble() * h.toDouble();
-      final double minArea = imgArea * 0.0003; // mínimo 0.03%
-      final double maxArea = imgArea * 0.03;   // máximo 3%
+      final double minArea = imgArea * 0.00008; // mínimo (varias fichas = puntos pequeños)
+      final double maxArea = imgArea * 0.04;    // máximo
 
       final List<_Blob> candidates = [];
       for (final b in blobs) {
@@ -294,7 +296,7 @@ class DominoVisionService {
       }
     }
 
-    if (area < 8) return null;
+    if (area < 4) return null;
 
     return _Blob(
       cx: sumX / area,
