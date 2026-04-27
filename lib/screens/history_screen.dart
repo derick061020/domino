@@ -13,6 +13,32 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   final GameService _gameService = GameService();
 
+  String _localizedGameName(String rawName, AppLocalizations loc) {
+    if (rawName == 'Partida Rápida' || rawName == 'Quick Game' || rawName == 'Jogo Rápido') {
+      return loc.get('quick_game');
+    }
+    return rawName;
+  }
+
+  String _localizedPlayerName(String rawName, AppLocalizations loc) {
+    final defaults = {
+      'Jugador 1': 1,
+      'Jugador 2': 2,
+      'Jugador 3': 3,
+      'Player 1': 1,
+      'Player 2': 2,
+      'Player 3': 3,
+      'Jogador 1': 1,
+      'Jogador 2': 2,
+      'Jogador 3': 3,
+    };
+    final number = defaults[rawName];
+    if (number != null) {
+      return '${loc.get('player')} $number';
+    }
+    return rawName;
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
@@ -102,7 +128,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            game.name,
+                            _localizedGameName(game.name, loc),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -189,7 +215,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               child: Column(
                 children: [
                   Text(
-                    player['name'] as String,
+                    _localizedPlayerName(player['name'] as String, AppLocalizations.of(context)),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,

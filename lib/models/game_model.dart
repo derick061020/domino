@@ -41,15 +41,25 @@ class DominoGame {
       {'name': player3Name, 'score': player3Score},
       {'name': player4Name, 'score': player4Score},
     ];
-    
+
     scores.removeWhere((score) => score['score'] == 0);
-    if (scores.isEmpty) return 'Empate';
-    
+    if (scores.isEmpty) return '';
+
     scores.sort((a, b) => (b['score']! as int).compareTo(a['score']! as int));
     if (scores.length == 1) return scores[0]['name']! as String;
-    
-    if ((scores[0]['score']! as int) == (scores[1]['score']! as int)) return 'Empate';
+
+    if ((scores[0]['score']! as int) == (scores[1]['score']! as int)) return '';
     return scores[0]['name']! as String;
+  }
+
+  bool get isTie {
+    final activeScores = [player1Score, player2Score, player3Score, player4Score]
+        .where((s) => s > 0)
+        .toList();
+    if (activeScores.isEmpty) return true;
+    if (activeScores.length == 1) return false;
+    activeScores.sort((a, b) => b.compareTo(a));
+    return activeScores[0] == activeScores[1];
   }
 
   Map<String, dynamic> toJson() {

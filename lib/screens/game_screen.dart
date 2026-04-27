@@ -216,7 +216,7 @@ class _GameScreenState extends State<GameScreen> {
         pageBuilder: (context, animation, _) {
           return _VictoryScreen(
             winner: winner,
-            isTie: winner == 'Empate',
+            isTie: _currentGame.isTie,
             localizations: localizations,
             maxPoints: _maxPoints,
             game: _currentGame,
@@ -916,7 +916,7 @@ class _GameScreenState extends State<GameScreen> {
                             children: [
                               // Número de ronda
                               Text(
-                                'R${index + 1}',
+                                '${localizations.get('round_short')}${index + 1}',
                                 style: TextStyle(
                                   color: Colors.white.withOpacity(0.5),
                                   fontSize: 13,
