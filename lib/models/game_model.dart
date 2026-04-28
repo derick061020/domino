@@ -42,13 +42,16 @@ class DominoGame {
       {'name': player4Name, 'score': player4Score},
     ];
 
-    scores.removeWhere((score) => score['score'] == 0);
-    if (scores.isEmpty) return '';
-
+    // Incluir todos los jugadores, incluso los con 0 puntos, para detectar correctamente
+    // No eliminar jugadores con 0 puntos, ya que podrían ser válidos en partidas de 2-3 jugadores
     scores.sort((a, b) => (b['score']! as int).compareTo(a['score']! as int));
-    if (scores.length == 1) return scores[0]['name']! as String;
-
-    if ((scores[0]['score']! as int) == (scores[1]['score']! as int)) return '';
+    
+    // Si el jugador con mayor puntuación tiene 0, no hay ganador
+    if ((scores[0]['score']! as int) == 0) return '';
+    
+    // Si hay empate en el primer lugar, no hay ganador único
+    if (scores.length > 1 && (scores[0]['score']! as int) == (scores[1]['score']! as int)) return '';
+    
     return scores[0]['name']! as String;
   }
 

@@ -335,131 +335,185 @@ class _AnalysisDialogState extends State<_AnalysisDialog> {
   Widget build(BuildContext context) {
     final loc = widget.loc;
     final result = widget.result;
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.height < 700;
 
-    return AlertDialog(
+    return Dialog(
       backgroundColor: const Color(0xFF2D2D44),
-      title: Text(
-        loc.get('analyze_points'),
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontFamily: 'Poppins',
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: screenSize.width * 0.95,
+          maxHeight: screenSize.height * 0.85,
         ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: ConstrainedBox(
-                constraints:
-                    const BoxConstraints(maxHeight: 200, maxWidth: 200),
-                child: Image.file(
-                  File(result.annotatedImagePath ?? result.imagePath),
-                  fit: BoxFit.contain,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Título
+            Text(
+              loc.get('analyze_points'),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+                fontSize: isSmallScreen ? 18 : 20,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Imagen con tamaño responsivo
+            Flexible(
+              child: Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: isSmallScreen ? 150 : 200,
+                      maxWidth: screenSize.width * 0.6,
+                    ),
+                    child: Image.file(
+                      File(result.annotatedImagePath ?? result.imagePath),
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 100,
+                          width: 100,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            color: Colors.white54,
+                            size: 40,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE53935).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                  color: const Color(0xFFE53935).withValues(alpha: 0.3)),
+            const SizedBox(height: 12),
+            
+            // Información de análisis
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE53935).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: const Color(0xFFE53935).withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                result.analysisInfo,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  fontFamily: 'Poppins',
+                ),
+              ),
             ),
-            child: Text(
-              result.analysisInfo,
-              textAlign: TextAlign.center,
+            const SizedBox(height: 20),
+            
+            // Selector de puntos
+            Text(
+              loc.get('detected_points'),
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 13,
                 fontFamily: 'Poppins',
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            loc.get('detected_points'),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _circleBtn(Icons.remove, () {
-                if (_points > 0) setState(() => _points--);
-              }),
-              Container(
-                width: 80,
-                alignment: Alignment.center,
-                child: Text(
-                  '$_points',
-                  style: const TextStyle(
-                    color: Color(0xFFE53935),
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Poppins',
+            const SizedBox(height: 12),
+            
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _circleBtn(Icons.remove, () {
+                  if (_points > 0) setState(() => _points--);
+                }),
+                const SizedBox(width: 20),
+                Container(
+                  width: isSmallScreen ? 60 : 80,
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$_points',
+                    style: TextStyle(
+                      color: const Color(0xFFE53935),
+                      fontSize: isSmallScreen ? 36 : 48,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Poppins',
+                    ),
                   ),
                 ),
-              ),
-              _circleBtn(Icons.add, () {
-                if (_points < 100) setState(() => _points++);
-              }),
-            ],
-          ),
-          Text(
-            loc.get('points'),
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 14,
-              fontFamily: 'Poppins',
+                const SizedBox(width: 20),
+                _circleBtn(Icons.add, () {
+                  if (_points < 100) setState(() => _points++);
+                }),
+              ],
             ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(
-            loc.get('cancel'),
-            style: const TextStyle(
-              color: Color(0xFFE53935),
-              fontFamily: 'Poppins',
-            ),
-          ),
-        ),
-        if (_points > 0)
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop(DominoDetectionResult(
-                detectedPoints: [_points],
-                imagePath: result.imagePath,
-                annotatedImagePath: result.annotatedImagePath,
-                analysisInfo: result.analysisInfo,
-              ));
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE53935),
-            ),
-            child: Text(
-              '${loc.get('use_these_points')} ($_points)',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+            const SizedBox(height: 8),
+            
+            Text(
+              loc.get('points'),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 14,
                 fontFamily: 'Poppins',
               ),
             ),
-          ),
-      ],
+            const SizedBox(height: 24),
+            
+            // Botones
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: Text(
+                    loc.get('cancel'),
+                    style: const TextStyle(
+                      color: Color(0xFFE53935),
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (_points > 0)
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(DominoDetectionResult(
+                        detectedPoints: [_points],
+                        imagePath: result.imagePath,
+                        annotatedImagePath: result.annotatedImagePath,
+                        analysisInfo: result.analysisInfo,
+                      ));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE53935),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    child: Text(
+                      '${loc.get('use_these_points')} ($_points)',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -164,6 +164,7 @@ class _GameScreenState extends State<GameScreen> {
                 _addPointsToPlayer(player, points);
                 await _saveGame();
                 Navigator.pop(context);
+                // Solo verificar una vez después de guardar
                 _checkWinCondition();
               }
             },
@@ -187,22 +188,28 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ),
     ).then((_) {
-      // Se ejecuta cuando el popup se cierra por cualquier motivo
-      _checkWinCondition();
+      // No verificar aquí, ya se verifica en onPressed
     });
   }
 
   void _checkWinCondition() {
-    if (_currentGame.player1Score >= _maxPoints || 
+    // Evitar múltiples verificaciones si el juego ya está completado
+    if (_currentGame.isCompleted) return;
+    
+    // Verificar si algún jugador alcanzó los puntos requeridos
+    final hasWinner = _currentGame.player1Score >= _maxPoints || 
         _currentGame.player2Score >= _maxPoints || 
         _currentGame.player3Score >= _maxPoints || 
-        _currentGame.player4Score >= _maxPoints) {
+        _currentGame.player4Score >= _maxPoints;
+    
+    if (hasWinner) {
       // Marcar la partida como completada inmediatamente
       setState(() {
         _currentGame = _currentGame.copyWith(isCompleted: true);
       });
-      _saveGame();
-      _showGameFinishedDialog();
+      _saveGame().then((_) {
+        _showGameFinishedDialog();
+      });
     }
   }
 
@@ -971,46 +978,48 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildBottomBar() {
     return Container(
-      height: 60,
+      height: 70, // Aumentado de 60 a 70
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.9),
+        color: Colors.black.withValues(alpha: 0.9),
         border: Border(
-          top: BorderSide(color: const Color(0xFFE53935).withOpacity(0.3)),
+          top: BorderSide(color: const Color(0xFFE53935).withValues(alpha: 0.3)),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          // Historial
-          _buildBottomBarItem(
-            icon: Icons.history,
-            label: AppLocalizations.of(context).get('history'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const HistoryScreen(),
+      child: SafeArea( // Agregado SafeArea para evitar la barra de navegación
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            // Historial
+            _buildBottomBarItem(
+              icon: Icons.history,
+              label: AppLocalizations.of(context).get('history'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const HistoryScreen(),
+                ),
               ),
             ),
-          ),
-          // Cámara - Solo para 2 jugadores
-          if (_playerCount == 2)
+            // Cámara - Solo para 2 jugadores
+            if (_playerCount == 2)
+              _buildBottomBarItem(
+                icon: Icons.camera_alt,
+                label: AppLocalizations.of(context).get('scan'),
+                onTap: () => _captureAndDetectPoints(),
+              ),
+            // Reiniciar
             _buildBottomBarItem(
-              icon: Icons.camera_alt,
-              label: AppLocalizations.of(context).get('scan'),
-              onTap: () => _captureAndDetectPoints(),
+              icon: Icons.refresh,
+              label: AppLocalizations.of(context).get('restart'),
+              onTap: () => _showResetDialog(),
             ),
-          // Reiniciar
-          _buildBottomBarItem(
-            icon: Icons.refresh,
-            label: AppLocalizations.of(context).get('restart'),
-            onTap: () => _showResetDialog(),
-          ),
-          // Premium
-          _buildBottomBarItem(
-            icon: Icons.star,
-            label: AppLocalizations.of(context).get('premium'),
-            onTap: () => _showPremiumDialog(),
-          ),
-        ],
+            // Premium
+            _buildBottomBarItem(
+              icon: Icons.star,
+              label: AppLocalizations.of(context).get('premium'),
+              onTap: () => _showPremiumDialog(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1025,26 +1034,27 @@ class _GameScreenState extends State<GameScreen> {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
-        splashColor: const Color(0xFFE53935).withOpacity(0.3),
-        highlightColor: const Color(0xFFE53935).withOpacity(0.2),
+        splashColor: const Color(0xFFE53935).withValues(alpha: 0.3),
+        highlightColor: const Color(0xFFE53935).withValues(alpha: 0.2),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), // Reducido padding horizontal
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
                 color: const Color(0xFFE53935),
-                size: 24,
+                size: 22, // Reducido de 24 a 22
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2), // Reducido de 4 a 2
               Text(
                 label,
                 style: const TextStyle(
                   color: Color(0xFFE53935),
-                  fontSize: 10,
+                  fontSize: 9, // Reducido de 10 a 9
                   fontFamily: 'Poppins',
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -1379,6 +1389,8 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ],
       ),
+      // Agregar padding seguro para evitar la barra de navegación
+      resizeToAvoidBottomInset: true,
     );
   }
 
