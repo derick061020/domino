@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_model.dart';
 import '../services/game_service.dart';
 import '../services/domino_vision_service.dart';
+import '../services/admob_service.dart';
 import '../languages/app_localizations.dart';
 import 'settings_screen.dart';
 import 'history_screen.dart';
@@ -20,6 +21,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   final GameService _gameService = GameService();
   final DominoVisionService _visionService = DominoVisionService();
+  final AdMobService _adMobService = AdMobService();
   late DominoGame _currentGame;
   bool _isLoading = false;
   String _selectedBackground = 'default';
@@ -31,6 +33,9 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     _currentGame = widget.game;
     _loadBackground();
+    // Cargar anuncios
+    _adMobService.loadBannerAd();
+    _adMobService.loadInterstitialAd();
   }
 
   Future<void> _loadBackground() async {
@@ -216,6 +221,9 @@ class _GameScreenState extends State<GameScreen> {
   void _showGameFinishedDialog() {
     final localizations = AppLocalizations.of(context);
     final winner = _currentGame.winner;
+
+    // Mostrar anuncio intersticial al terminar el juego
+    _adMobService.showInterstitialAd();
 
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -1383,6 +1391,12 @@ class _GameScreenState extends State<GameScreen> {
                             ? _buildTwoPlayerLayout()
                             : _buildMultiPlayerLayout(),
                       ),
+                      // Banner AdMob (no intrusivo)
+                      Container(
+                        height: 50,
+                        alignment: Alignment.center,
+                        child: _adMobService.getBannerAdWidget(),
+                      ),
                       _buildBottomBar(),
                     ],
                   ),
@@ -1670,6 +1684,12 @@ class _GameScreenState extends State<GameScreen> {
         ),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _adMobService.dispose();
+    super.dispose();
   }
 }
 

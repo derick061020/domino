@@ -51,5 +51,7 @@
 	<string>Esta app necesita acceso a la galería para seleccionar imágenes de domino y escanear puntos.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Esta app necesita permiso para guardar imágenes procesadas de domino.</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-4159428003190645~6649118101</string>
 </dict>
 </plist>

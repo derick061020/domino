@@ -5,8 +5,11 @@ import 'dart:ui' as ui;
 import '../models/game_model.dart';
 import 'screens/game_screen.dart';
 import 'languages/app_localizations.dart';
+import 'services/admob_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AdMobService().initialize();
   runApp(MyApp());
 }
 
