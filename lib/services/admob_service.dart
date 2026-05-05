@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 class AdMobService {
@@ -8,17 +9,25 @@ class AdMobService {
   AdMobService._internal();
 
   // IDs de anuncios reales proporcionados por el usuario
-  static const String _bannerAdUnitId = kIsWeb 
-    ? 'ca-app-pub-4159428003190645/6649118101'  // Web banner
-    : Platform.isAndroid 
-      ? 'ca-app-pub-4159428003190645/6649118101'  // Android banner
-      : 'ca-app-pub-4159428003190645/6649118101'; // iOS banner
+  static String get _bannerAdUnitId {
+    if (kIsWeb) {
+      return 'ca-app-pub-4159428003190645/6649118101';  // Web banner
+    } else if (Platform.isAndroid) {
+      return 'ca-app-pub-4159428003190645/6649118101';  // Android banner
+    } else {
+      return 'ca-app-pub-4159428003190645/6649118101';  // iOS banner
+    }
+  }
 
-  static const String _interstitialAdUnitId = kIsWeb
-    ? 'ca-app-pub-4159428003190645/6649118101'  // Web interstitial
-    : Platform.isAndroid
-      ? 'ca-app-pub-4159428003190645/6649118101'  // Android interstitial
-      : 'ca-app-pub-4159428003190645/6649118101'; // iOS interstitial
+  static String get _interstitialAdUnitId {
+    if (kIsWeb) {
+      return 'ca-app-pub-4159428003190645/6649118101';  // Web interstitial
+    } else if (Platform.isAndroid) {
+      return 'ca-app-pub-4159428003190645/6649118101';  // Android interstitial
+    } else {
+      return 'ca-app-pub-4159428003190645/6649118101';  // iOS interstitial
+    }
+  }
 
   BannerAd? _bannerAd;
   InterstitialAd? _interstitialAd;

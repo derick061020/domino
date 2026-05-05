@@ -1195,28 +1195,7 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _undoLastRound() {
-    if (_currentGame.player1Rounds.isNotEmpty || _currentGame.player2Rounds.isNotEmpty) {
-      setState(() {
-        final p1Rounds = List<int>.from(_currentGame.player1Rounds);
-        final p2Rounds = List<int>.from(_currentGame.player2Rounds);
-
-        if (p2Rounds.length > p1Rounds.length) {
-          p2Rounds.removeLast();
-        } else if (p1Rounds.isNotEmpty) {
-          p1Rounds.removeLast();
-        }
-
-        _currentGame = _currentGame.copyWith(
-          player1Rounds: p1Rounds,
-          player2Rounds: p2Rounds,
-          lastPlayed: DateTime.now(),
-        );
-      });
-      _saveGame();
-    }
-  }
-
+  
   void _deleteRound(int roundIndex) {
     setState(() {
       final p1Rounds = List<int>.from(_currentGame.player1Rounds);
