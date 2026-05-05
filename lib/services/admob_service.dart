@@ -9,23 +9,25 @@ class AdMobService {
   AdMobService._internal();
 
   // IDs de anuncios reales proporcionados por el usuario
+  // ID de aplicación: ca-app-pub-4159428003190645~6649118101
+  
   static String get _bannerAdUnitId {
     if (kIsWeb) {
-      return 'ca-app-pub-4159428003190645/6649118101';  // Web banner
+      return 'ca-app-pub-4159428003190645/3678394311';  // Web banner
     } else if (Platform.isAndroid) {
-      return 'ca-app-pub-4159428003190645/6649118101';  // Android banner
+      return 'ca-app-pub-4159428003190645/3678394311';  // Android banner
     } else {
-      return 'ca-app-pub-4159428003190645/6649118101';  // iOS banner
+      return 'ca-app-pub-4159428003190645/3678394311';  // iOS banner
     }
   }
 
   static String get _interstitialAdUnitId {
     if (kIsWeb) {
-      return 'ca-app-pub-4159428003190645/6649118101';  // Web interstitial
+      return 'ca-app-pub-4159428003190645/2365312640';  // Web interstitial
     } else if (Platform.isAndroid) {
-      return 'ca-app-pub-4159428003190645/6649118101';  // Android interstitial
+      return 'ca-app-pub-4159428003190645/2365312640';  // Android interstitial
     } else {
-      return 'ca-app-pub-4159428003190645/6649118101';  // iOS interstitial
+      return 'ca-app-pub-4159428003190645/2365312640';  // iOS interstitial
     }
   }
 
@@ -36,13 +38,16 @@ class AdMobService {
   // Inicializar AdMob
   Future<void> initialize() async {
     try {
+      debugPrint('Iniciando AdMob...');
       await MobileAds.instance.initialize();
+      debugPrint('AdMob inicializado correctamente');
       
       // Configurar el modo de prueba para desarrollo
       if (kDebugMode) {
         MobileAds.instance.updateRequestConfiguration(
           RequestConfiguration(testDeviceIds: ['YOUR_DEVICE_ID_HERE']),
         );
+        debugPrint('Modo de prueba configurado');
       }
     } catch (e) {
       debugPrint('Error inicializando AdMob: $e');
@@ -71,6 +76,7 @@ class AdMobService {
 
   // Cargar anuncio banner
   void loadBannerAd() {
+    debugPrint('Cargando anuncio banner con ID: $_bannerAdUnitId');
     _bannerAd?.dispose();
     _bannerAd = createBannerAd();
     _bannerAd?.load();
@@ -84,6 +90,7 @@ class AdMobService {
   // Cargar anuncio intersticial
   Future<void> loadInterstitialAd() async {
     try {
+      debugPrint('Cargando anuncio intersticial con ID: $_interstitialAdUnitId');
       await InterstitialAd.load(
         adUnitId: _interstitialAdUnitId,
         request: const AdRequest(),
@@ -91,16 +98,16 @@ class AdMobService {
           onAdLoaded: (ad) {
             _interstitialAd = ad;
             _isInterstitialAdReady = true;
-            debugPrint('Anuncio intersticial cargado');
+            debugPrint('✅ Anuncio intersticial cargado correctamente');
           },
           onAdFailedToLoad: (error) {
-            debugPrint('Error al cargar anuncio intersticial: $error');
+            debugPrint('❌ Error al cargar anuncio intersticial: $error');
             _isInterstitialAdReady = false;
           },
         ),
       );
     } catch (e) {
-      debugPrint('Error cargando anuncio intersticial: $e');
+      debugPrint('❌ Error cargando anuncio intersticial: $e');
       _isInterstitialAdReady = false;
     }
   }

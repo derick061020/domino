@@ -33,9 +33,17 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     _currentGame = widget.game;
     _loadBackground();
-    // Cargar anuncios
+    
+    // Debug AdMob
+    debugPrint('🔍 Iniciando carga de anuncios...');
     _adMobService.loadBannerAd();
     _adMobService.loadInterstitialAd();
+    
+    // Verificar después de 3 segundos
+    Future.delayed(const Duration(seconds: 3), () {
+      debugPrint('🔍 Banner widget: ${_adMobService.getBannerAdWidget() != null ? "CARGADO" : "NULL"}');
+      debugPrint('🔍 Intersticial listo: ${_adMobService.isInterstitialAdReady}');
+    });
   }
 
   Future<void> _loadBackground() async {
@@ -1373,8 +1381,22 @@ class _GameScreenState extends State<GameScreen> {
                       // Banner AdMob (no intrusivo)
                       Container(
                         height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.1),
+                          border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        ),
                         alignment: Alignment.center,
-                        child: _adMobService.getBannerAdWidget(),
+                        child: _adMobService.getBannerAdWidget() ?? 
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            child: const Text(
+                              'Publicidad',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                       ),
                       _buildBottomBar(),
                     ],
