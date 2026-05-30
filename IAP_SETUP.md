@@ -13,6 +13,29 @@ los anuncios de AdMob.
 flutter pub get
 ```
 
+### Nota iOS: Swift Package Manager desactivado
+
+Este proyecto desactiva SPM en `pubspec.yaml`:
+
+```yaml
+flutter:
+  config:
+    enable-swift-package-manager: false
+```
+
+Esto es **necesario** porque `google_mobile_ads` todavía usa CocoaPods y
+entra en conflicto con `webview_flutter_wkwebview` (dependencia transitiva
+de `in_app_purchase_storekit`) que ya migró a SPM. Si ves un error como
+*"A dependency conflict has occurred because google_mobile_ads uses CocoaPods
+while webview_flutter_wkwebview uses Swift Package Manager"*, asegurate de
+que la línea anterior siga en `pubspec.yaml` y limpiá:
+
+```bash
+flutter clean
+flutter pub get
+cd ios && pod install
+```
+
 ## 2. Google Play Console
 
 1. Subí un **release build firmado** (mínimo a la pista **Internal testing**)

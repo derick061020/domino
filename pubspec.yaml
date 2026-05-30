@@ -60,6 +60,13 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
 
+  # Desactiva Swift Package Manager para iOS: google_mobile_ads aún usa
+  # CocoaPods y entra en conflicto con plugins que ya migraron a SPM
+  # (p. ej. webview_flutter_wkwebview, dependencia transitiva de
+  # in_app_purchase_storekit).
+  config:
+    enable-swift-package-manager: false
+
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
