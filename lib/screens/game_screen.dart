@@ -5,9 +5,11 @@ import '../models/game_model.dart';
 import '../services/game_service.dart';
 import '../services/domino_vision_service.dart';
 import '../services/admob_service.dart';
+import '../services/purchase_service.dart';
 import '../languages/app_localizations.dart';
 import 'settings_screen.dart';
 import 'history_screen.dart';
+import 'premium_screen.dart';
 
 class GameScreen extends StatefulWidget {
   final DominoGame game;
@@ -22,6 +24,7 @@ class _GameScreenState extends State<GameScreen> {
   final GameService _gameService = GameService();
   final DominoVisionService _visionService = DominoVisionService();
   final AdMobService _adMobService = AdMobService();
+  final PurchaseService _purchases = PurchaseService();
   late DominoGame _currentGame;
   bool _isLoading = false;
   String _selectedBackground = 'default';
@@ -34,16 +37,11 @@ class _GameScreenState extends State<GameScreen> {
     _currentGame = widget.game;
     _loadBackground();
     
-    // Debug AdMob
-    debugPrint('🔍 Iniciando carga de anuncios...');
-    _adMobService.loadBannerAd();
-    _adMobService.loadInterstitialAd();
-    
-    // Verificar después de 3 segundos
-    Future.delayed(const Duration(seconds: 3), () {
-      debugPrint('🔍 Banner widget: ${_adMobService.getBannerAdWidget() != null ? "CARGADO" : "NULL"}');
-      debugPrint('🔍 Intersticial listo: ${_adMobService.isInterstitialAdReady}');
-    });
+    if (!_purchases.isPremium.value) {
+      debugPrint('🔍 Iniciando carga de anuncios...');
+      _adMobService.loadBannerAd();
+      _adMobService.loadInterstitialAd();
+    }
   }
 
   Future<void> _loadBackground() async {
@@ -230,8 +228,10 @@ class _GameScreenState extends State<GameScreen> {
     final localizations = AppLocalizations.of(context);
     final winner = _currentGame.winner;
 
-    // Mostrar anuncio intersticial al terminar el juego
-    _adMobService.showInterstitialAd();
+    // Mostrar anuncio intersticial al terminar el juego (si no es premium)
+    if (!_purchases.isPremium.value) {
+      _adMobService.showInterstitialAd();
+    }
 
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -1145,61 +1145,8 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showPremiumDialog() {
-    final loc = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF2D2D44),
-        title: Text(
-          loc.get('premium_title'),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Poppins',
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.star,
-              color: Color(0xFFE53935),
-              size: 60,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              loc.get('unlock_premium'),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontFamily: 'Poppins',
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              loc.get('premium_features'),
-              style: const TextStyle(
-                color: Colors.white70,
-                fontFamily: 'Poppins',
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              loc.get('coming_soon'),
-              style: const TextStyle(
-                color: Colors.white70,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(loc.get('close'), style: const TextStyle(color: Color(0xFFE53935))),
-          ),
-        ],
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PremiumScreen()),
     );
   }
 
@@ -1378,25 +1325,31 @@ class _GameScreenState extends State<GameScreen> {
                             ? _buildTwoPlayerLayout()
                             : _buildMultiPlayerLayout(),
                       ),
-                      // Banner AdMob (no intrusivo)
-                      Container(
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.1),
-                          border: Border.all(color: Colors.white.withOpacity(0.1)),
-                        ),
-                        alignment: Alignment.center,
-                        child: _adMobService.getBannerAdWidget() ?? 
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            child: const Text(
-                              'Publicidad',
-                              style: TextStyle(
-                                color: Colors.white54,
-                                fontSize: 12,
-                              ),
+                      // Banner AdMob (oculto si premium)
+                      ValueListenableBuilder<bool>(
+                        valueListenable: _purchases.isPremium,
+                        builder: (context, isPremium, _) {
+                          if (isPremium) return const SizedBox.shrink();
+                          return Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.1),
+                              border: Border.all(color: Colors.white.withOpacity(0.1)),
                             ),
-                          ),
+                            alignment: Alignment.center,
+                            child: _adMobService.getBannerAdWidget() ??
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  child: const Text(
+                                    'Publicidad',
+                                    style: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                          );
+                        },
                       ),
                       _buildBottomBar(),
                     ],

@@ -6,10 +6,12 @@ import '../models/game_model.dart';
 import 'screens/game_screen.dart';
 import 'languages/app_localizations.dart';
 import 'services/admob_service.dart';
+import 'services/purchase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AdMobService().initialize();
+  await PurchaseService().initialize();
   runApp(MyApp());
 }
 
