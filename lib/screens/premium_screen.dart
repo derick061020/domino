@@ -115,6 +115,8 @@ class _PremiumScreenState extends State<PremiumScreen> {
                         _infoBox(loc.get('loading_product'))
                       else
                         _buildBuyButton(loc, product, processing),
+                      const SizedBox(height: 16),
+                      _buildDebugLog(),
                       const SizedBox(height: 12),
                       TextButton(
                         onPressed: processing
@@ -207,6 +209,48 @@ class _PremiumScreenState extends State<PremiumScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildDebugLog() {
+    return ValueListenableBuilder<String>(
+      valueListenable: _purchases.debugLog,
+      builder: (context, log, _) {
+        if (log.isEmpty) return const SizedBox.shrink();
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF444466)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'DEBUG IAP',
+                style: TextStyle(
+                  color: Color(0xFFE53935),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(height: 6),
+              SelectableText(
+                log,
+                style: const TextStyle(
+                  color: Color(0xFF7CFC00),
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
