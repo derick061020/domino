@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import '../constants/legal_links.dart';
 import '../languages/app_localizations.dart';
 import '../services/purchase_service.dart';
 
@@ -115,8 +116,6 @@ class _PremiumScreenState extends State<PremiumScreen> {
                         _infoBox(loc.get('loading_product'))
                       else
                         _buildBuyButton(loc, product, processing),
-                      const SizedBox(height: 16),
-                      _buildDebugLog(),
                       const SizedBox(height: 12),
                       TextButton(
                         onPressed: processing
@@ -139,6 +138,24 @@ class _PremiumScreenState extends State<PremiumScreen> {
                           fontSize: 11,
                           fontFamily: 'Poppins',
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _legalLink(loc.get('privacy_policy'),
+                              LegalLinks.privacyPolicy),
+                          Text(
+                            '   ·   ',
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 11,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                          _legalLink(loc.get('terms_conditions'),
+                              LegalLinks.termsOfUse),
+                        ],
                       ),
                     ],
                   ),
@@ -212,45 +229,19 @@ class _PremiumScreenState extends State<PremiumScreen> {
     );
   }
 
-  Widget _buildDebugLog() {
-    return ValueListenableBuilder<String>(
-      valueListenable: _purchases.debugLog,
-      builder: (context, log, _) {
-        if (log.isEmpty) return const SizedBox.shrink();
-        return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFF444466)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'DEBUG IAP',
-                style: TextStyle(
-                  color: Color(0xFFE53935),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
-                ),
-              ),
-              const SizedBox(height: 6),
-              SelectableText(
-                log,
-                style: const TextStyle(
-                  color: Color(0xFF7CFC00),
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+  Widget _legalLink(String text, String url) {
+    return GestureDetector(
+      onTap: () => LegalLinks.open(url),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFFE53935),
+          fontSize: 11,
+          decoration: TextDecoration.underline,
+          decorationColor: Color(0xFFE53935),
+          fontFamily: 'Poppins',
+        ),
+      ),
     );
   }
 

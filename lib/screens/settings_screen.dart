@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../languages/app_localizations.dart';
+import '../constants/legal_links.dart';
 import '../main.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -426,9 +427,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 children: [
                   ListTile(
-                    onTap: () {
-                      // TODO: Implementar política de privacidad
-                    },
+                    onTap: () => LegalLinks.open(LegalLinks.privacyPolicy),
                     leading: const Icon(Icons.privacy_tip, color: Color(0xFFE53935)),
                     title: Text(
                       localizations.get('privacy_policy'),
@@ -441,9 +440,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     contentPadding: EdgeInsets.zero,
                   ),
                   ListTile(
-                    onTap: () {
-                      // TODO: Implementar términos y condiciones
-                    },
+                    onTap: () => LegalLinks.open(LegalLinks.termsOfUse),
                     leading: const Icon(Icons.description, color: Color(0xFFE53935)),
                     title: Text(
                       localizations.get('terms_conditions'),

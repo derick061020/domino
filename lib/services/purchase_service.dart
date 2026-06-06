@@ -23,25 +23,14 @@ class PurchaseService {
       ValueNotifier<List<ProductDetails>>(const []);
   final ValueNotifier<bool> isProcessing = ValueNotifier<bool>(false);
 
-  // Diagnóstico visible en pantalla para depurar la carga de productos.
-  final ValueNotifier<String> debugLog = ValueNotifier<String>('');
-
-  void _log(String message) {
-    debugPrint(message);
-    debugLog.value =
-        '${debugLog.value}${debugLog.value.isEmpty ? '' : '\n'}$message';
-  }
-
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     isPremium.value = prefs.getBool(_prefsKeyPremium) ?? false;
 
-    _log('IDs solicitados: $_productIds');
     final available = await _iap.isAvailable();
     isAvailable.value = available;
-    _log('IAP disponible: $available');
     if (!available) {
-      _log('IAP no disponible en este dispositivo');
+      debugPrint('IAP no disponible en este dispositivo');
       return;
     }
 
@@ -57,18 +46,12 @@ class PurchaseService {
   }
 
   Future<void> _loadProducts() async {
-    _log('Consultando productos...');
     final response = await _iap.queryProductDetails(_productIds);
     if (response.error != null) {
-      _log('Error consultando productos: ${response.error}');
+      debugPrint('Error consultando productos: ${response.error}');
     }
     if (response.notFoundIDs.isNotEmpty) {
-      _log('Productos NO encontrados: ${response.notFoundIDs}');
-    }
-    if (response.productDetails.isNotEmpty) {
-      for (final p in response.productDetails) {
-        _log('Producto OK: ${p.id} -> ${p.price}');
-      }
+      debugPrint('Productos no encontrados: ${response.notFoundIDs}');
     }
     products.value = response.productDetails;
   }
