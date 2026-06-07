@@ -3,9 +3,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// Enlaces legales requeridos por Apple (Guideline 3.1.2) y Google Play.
 class LegalLinks {
-  // Términos de Uso (EULA) propios, alojados en el sitio.
+  // Términos de Uso: EULA estándar de Apple (Apple Standard EULA).
+  // Requerido por App Store Guideline 3.1.2(c) para suscripciones.
   static const String termsOfUse =
-      'https://sienna-trout-499246.hostingersite.com/terms.html';
+      'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
   // Política de Privacidad. IMPORTANTE: crear esta página en el hosting.
   static const String privacyPolicy =
