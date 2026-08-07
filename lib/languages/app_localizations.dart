@@ -19,7 +19,7 @@ class AppLocalizations {
   // Español
   static const Map<String, String> _es = {
     // General
-    'app_title': 'Domino Score',
+    'app_title': 'Domino Apunte App',
     'cancel': 'Cancelar',
     'save': 'Guardar',
     'close': 'Cerrar',
@@ -114,7 +114,7 @@ class AppLocalizations {
   // English
   static const Map<String, String> _en = {
     // General
-    'app_title': 'Domino Score',
+    'app_title': 'Domino Apunte App',
     'cancel': 'Cancel',
     'save': 'Save',
     'close': 'Close',
@@ -209,7 +209,7 @@ class AppLocalizations {
   // Portuguese
   static const Map<String, String> _pt = {
     // General
-    'app_title': 'Domino Score',
+    'app_title': 'Domino Apunte App',
     'cancel': 'Cancelar',
     'save': 'Salvar',
     'close': 'Fechar',

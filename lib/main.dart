@@ -96,7 +96,7 @@ class _MyAppState extends State<MyApp> {
         final currentLocale = _locale ?? localeSnapshot.data ?? const Locale('es');
         
         return MaterialApp(
-          title: 'Domino Score',
+          title: 'Domino Apunte App',
           debugShowCheckedModeBanner: false,
           locale: currentLocale,
           localizationsDelegates: const [

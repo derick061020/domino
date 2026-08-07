@@ -1,6 +1,6 @@
 {
-    "name": "Domino Apuntes Score",
-    "short_name": "Domino Apuntes Score",
+    "name": "Domino Apunte App",
+    "short_name": "Domino Apunte App",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
